@@ -1,0 +1,12 @@
+# The eye service's declaration to the card master (docs/n2.md, 「The declaration」).
+
+service = "eye"
+card_mib = 11400
+priority = 60
+tier = 1
+spread = "one"
+alone = false
+
+[turn]
+yield_after_s = 0
+can_pause = false

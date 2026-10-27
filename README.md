@@ -15,3 +15,11 @@ Every agent on the platform looks at an image or a video through bmo-eye first u
 
 `docs/` holds the canonical statements: the API, the modes and their chains, the n2 installs and their measured
 fit, and the plan. Archive documents and reports for the owner are written in Korean; `docs/` stays in English.
+
+## Layout
+
+| Folder | Holds |
+|---|---|
+| `docs/` | The API, the modes and their chains, the n2 install, and the stage 2 plan |
+| `scripts/` | The measurement harness the stage 1 numbers were taken with |
+| `eye.card.toml` | The service's declaration to the card master |
