@@ -136,7 +136,7 @@ async fn a_mode_refuses_what_it_does_not_read() {
     .await
     .unwrap_err();
   assert!(err.contains("unsupported-source"), "{err}");
-  assert_eq!(client.look(upload.id).await.is_err(), true);
+  assert!(client.look(upload.id).await.is_err());
   let _ = std::fs::remove_dir_all(dir);
 }
 

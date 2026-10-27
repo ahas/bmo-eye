@@ -133,12 +133,11 @@ impl Chain {
         }
       }
       Rung::Caller => {
-        if mode == Mode::Watch {
-          if let Some(seconds) = material.duration_s {
-            if seconds > 30.0 {
-              return Err(format!("the caller's transport carries no {seconds:.0} s video"));
-            }
-          }
+        if mode == Mode::Watch
+          && let Some(seconds) = material.duration_s
+          && seconds > 30.0
+        {
+          return Err(format!("the caller's transport carries no {seconds:.0} s video"));
         }
         Ok(())
       }

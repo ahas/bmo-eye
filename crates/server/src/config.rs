@@ -260,10 +260,10 @@ impl Default for Settings {
 
 /// `~` at the front of a path stands for the home directory.
 pub fn expand(path: &str) -> PathBuf {
-  if let Some(rest) = path.strip_prefix("~/") {
-    if let Some(home) = std::env::var_os("HOME") {
-      return Path::new(&home).join(rest);
-    }
+  if let Some(rest) = path.strip_prefix("~/")
+    && let Some(home) = std::env::var_os("HOME")
+  {
+    return Path::new(&home).join(rest);
   }
   PathBuf::from(path)
 }

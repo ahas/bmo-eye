@@ -340,14 +340,12 @@ pub async fn speech(settings: &Settings, wav: &Path, language: &str) -> Result<S
   let stream = resp.text().await.map_err(|e| e.to_string())?;
   let mut out = String::new();
   for line in stream.lines() {
-    if let Some(data) = line.strip_prefix("data: ") {
-      if let Ok(ev) = serde_json::from_str::<serde_json::Value>(data) {
-        if let Some(chunk) = ev.get("chunk").and_then(|c| c.get("base64")).and_then(|b| b.as_str()) {
-          if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(chunk) {
-            out.push_str(&String::from_utf8_lossy(&bytes));
-          }
-        }
-      }
+    if let Some(data) = line.strip_prefix("data: ")
+      && let Ok(ev) = serde_json::from_str::<serde_json::Value>(data)
+      && let Some(chunk) = ev.get("chunk").and_then(|c| c.get("base64")).and_then(|b| b.as_str())
+      && let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(chunk)
+    {
+      out.push_str(&String::from_utf8_lossy(&bytes));
     }
   }
   let json: serde_json::Value = serde_json::from_str(out.trim()).map_err(|e| {

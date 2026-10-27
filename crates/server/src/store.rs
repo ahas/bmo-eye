@@ -142,31 +142,31 @@ impl Store {
     let backend = outcome
       .backend
       .as_ref()
-      .map(|b| serde_json::to_string(b))
+      .map(serde_json::to_string)
       .transpose()
       .map_err(|e| e.to_string())?;
     let answer = outcome
       .answer
       .as_ref()
-      .map(|a| serde_json::to_string(a))
+      .map(serde_json::to_string)
       .transpose()
       .map_err(|e| e.to_string())?;
     let speech = outcome
       .speech
       .as_ref()
-      .map(|s| serde_json::to_string(s))
+      .map(serde_json::to_string)
       .transpose()
       .map_err(|e| e.to_string())?;
     let frames = outcome
       .frames
       .as_ref()
-      .map(|f| serde_json::to_string(f))
+      .map(serde_json::to_string)
       .transpose()
       .map_err(|e| e.to_string())?;
     let pages = outcome
       .pages
       .as_ref()
-      .map(|p| serde_json::to_string(p))
+      .map(serde_json::to_string)
       .transpose()
       .map_err(|e| e.to_string())?;
     let usage = serde_json::to_string(&outcome.usage).map_err(|e| e.to_string())?;

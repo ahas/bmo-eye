@@ -291,11 +291,7 @@ async fn events(State(app): State<Arc<App>>, Query(q): Query<EventQuery>) -> Res
   let mut last = q.after.unwrap_or(0);
   let store = app.store.clone();
   let stream = async_stream(move |tx| async move {
-    loop {
-      let rows = match store.events_since(last, 200) {
-        Ok(r) => r,
-        Err(_) => break,
-      };
+    while let Ok(rows) = store.events_since(last, 200) {
       for (id, kind, at, data) in rows {
         last = id;
         let payload = serde_json::json!({"id": id, "kind": kind, "at": at, "data": serde_json::from_str::<serde_json::Value>(&data).unwrap_or_default()});
@@ -383,7 +379,7 @@ async fn prepare_and_answer(app: &Arc<App>, look: &Look, mode: Mode) -> Outcome 
   let mut video: Option<(std::path::PathBuf, bool)> = None;
   for (i, source) in look.sources.iter().enumerate() {
     let (bytes, media, path) =
-      match media::read_source(&settings, &app.store, source, &app.settings.root()).await {
+      match media::read_source(settings, &app.store, source, &app.settings.root()).await {
         Ok(v) => v,
         Err(e) => {
           return Outcome {
