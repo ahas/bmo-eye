@@ -60,11 +60,5 @@ id = "register-tools"
 phase = "after-health"
 command = '''
 set -eu
-rm -rf .tool
-mkdir -p .tool/tool .tool/docs
-cp bin/bmo-eye tool.toml .tool/
-cp tool/see.json tool/read.json tool/watch.json tool/look.json .tool/tool/
-cp docs/tool-see.md docs/tool-read.md docs/tool-watch.md .tool/docs/
-bmo pocket put .tool --placed --service bmo-eye --allow room.tools
-rm -rf .tool
+bmo pocket put . --service bmo-eye --allow room.tools
 '''

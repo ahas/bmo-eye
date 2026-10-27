@@ -17,8 +17,8 @@ name = "see"
 title = "See"
 description = "Look at one or more images — a photo, a screenshot, a chart — and answer a question about them, through the platform's vision unit."
 manual = "docs/tool-see.md"
-input = "tool/see.json"
-output = "tool/look.json"
+input = "see.json"
+output = "look.json"
 hints = { read_only = true, open_world = true }
 capabilities = ["room.tools"]
 timeout = 900
@@ -29,8 +29,8 @@ name = "read"
 title = "Read"
 description = "Read a document — a scan, a PDF page, a table — and answer its text, page by page, through the platform's vision unit."
 manual = "docs/tool-read.md"
-input = "tool/read.json"
-output = "tool/look.json"
+input = "read.json"
+output = "look.json"
 hints = { read_only = true, open_world = true }
 capabilities = ["room.tools"]
 timeout = 900
@@ -41,8 +41,8 @@ name = "watch"
 title = "Watch"
 description = "Look at a video — a file, an address or a YouTube link — answer a question about it, with what is said in it."
 manual = "docs/tool-watch.md"
-input = "tool/watch.json"
-output = "tool/look.json"
+input = "watch.json"
+output = "look.json"
 hints = { read_only = true, open_world = true }
 capabilities = ["room.tools"]
 timeout = 1800

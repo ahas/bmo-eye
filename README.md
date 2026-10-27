@@ -28,7 +28,6 @@ and the plan. Archive documents and reports for the owner are written in Korean;
 | `src/` | The repository's own package, which holds no code |
 | `tests/` | The tests that walk the routes against a stand-in Lab-arena node |
 | `deploy/` | The user unit the deployment restarts and watches |
-| `tool/` | The tool host's input and output schemas for the three entries |
 
-At the root stand the Cargo workspace, the tool host's manifest `tool.toml`, the testbed's `testbed.toml` and
-`CLAUDE.md`.
+At the root stand the Cargo workspace, the tool host's manifest `tool.toml` with the schemas its entries name
+(beside it, as the host requires), the testbed's `testbed.toml` and `CLAUDE.md`.
