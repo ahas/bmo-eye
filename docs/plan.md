@@ -15,8 +15,9 @@ read the pictures. This document states what stands now and what is still to bui
 | the server | `crates/server`, the binary `bmo-eye`, with the store, the chain and the four backends |
 | the client | `crates/client`, the types and the HTTP client the command and the tests use |
 | the command | `bmo eye see`, `bmo eye read`, `bmo eye watch`, `bmo eye looks`, `bmo eye look`, `bmo eye modes` |
-| the unit | `bmo-eye.service` on main-host, deployed from this repository, its health `bmo-eye health` |
+| the unit | `bmo-eye.service` on main-host, enabled, its health `bmo-eye health` |
 | the tools | `eye/see`, `eye/read` and `eye/watch`, placed with the tool host by the deployment |
+| the chat line | the chat agent's image note reads the picture through `bmo eye see` (agency `prompts/agents/chat/manual.md`) |
 | the tests | `tests/api.rs`: a stand-in Lab-arena node and the routes walked against it |
 
 The server holds no weights, no card and no VRAM: a look is answered by a Lab-arena instance, and the vision
@@ -77,6 +78,10 @@ One binary, `bmo-eye`, a Rust workspace at this repository's root.
 end to end on real inputs with the backend, the node and the time recorded. Both were met on n3 on
 2026-10-27: a screenshot in 2.7 s, a photo of a receipt in 2.9 s, a document scan in 5.2 s and a one-minute
 video in 62 s, each answered by `lab-arena` on n3, and `cargo test` green over the routes.
+
+**Live after the flip,** asked through the served noun on 2026-10-27 at 20:28 KST: the screenshot answered
+in 2.45 s and the photo of a receipt in 2.23 s, both by `lab-arena` on n3 with `qwen3.8-flash-next-iq3_s`, and
+`bmo eye --help` answered its five sub-verbs. The release serving them is `32b478a6402e`.
 
 ## The command
 
