@@ -1,0 +1,541 @@
+//! The routes `docs/api.md` states, and the work behind a look.
+
+use std::sync::Arc;
+
+use axum::extract::{Path, Query, State};
+use axum::http::{HeaderMap, StatusCode};
+use axum::response::sse::{Event, Sse};
+use axum::response::{IntoResponse, Response};
+use axum::routing::{delete, get, post};
+use axum::{Json, Router};
+use bmo_eye_client::State as LookState;
+use bmo_eye_client::*;
+use futures_util::stream::Stream;
+use serde::Deserialize;
+use sha2::Digest as _;
+
+use crate::chain::{Chain, modes};
+use crate::config::{Settings, expand};
+use crate::media::{self, Material};
+use crate::store::{Outcome, Store};
+
+#[derive(Clone)]
+pub struct App {
+  pub settings: Arc<Settings>,
+  pub store: Store,
+  pub token: Arc<String>,
+}
+
+pub fn app(app: App) -> Router {
+  let state = Arc::new(app);
+  Router::new()
+    .route("/health", get(health))
+    .route("/looks", get(list_looks).post(create_look))
+    .route("/looks/{look_id}", get(get_look).delete(delete_look))
+    .route("/uploads", post(create_upload))
+    .route("/uploads/{upload_id}/content", get(upload_content))
+    .route("/uploads/{upload_id}", delete(delete_upload))
+    .route("/modes", get(get_modes))
+    .route("/events", get(events))
+    .fallback(no_route)
+    .layer(axum::middleware::from_fn_with_state(state.clone(), auth))
+    .with_state(state)
+}
+
+async fn auth(
+  State(app): State<Arc<App>>,
+  req: axum::extract::Request,
+  next: axum::middleware::Next,
+) -> Response {
+  let ok = req
+    .headers()
+    .get(axum::http::header::AUTHORIZATION)
+    .and_then(|v| v.to_str().ok())
+    .and_then(|v| v.strip_prefix("Bearer "))
+    .map(|t| t == app.token.as_str())
+    .unwrap_or(false);
+  if !ok {
+    return failure(StatusCode::UNAUTHORIZED, "unauthorized", "the token is missing or wrong");
+  }
+  next.run(req).await
+}
+
+pub fn failure(status: StatusCode, code: &str, error: impl Into<String>) -> Response {
+  (
+    status,
+    Json(Failure {
+      code: code.into(),
+      error: error.into(),
+    }),
+  )
+    .into_response()
+}
+
+async fn no_route() -> Response {
+  failure(StatusCode::NOT_FOUND, "no-route", "no route answers this method and path")
+}
+
+async fn health(State(_app): State<Arc<App>>) -> Response {
+  Json(Health {
+    ready: true,
+    reason: None,
+    version: env!("CARGO_PKG_VERSION").into(),
+  })
+  .into_response()
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct LookQuery {
+  wait_ms: Option<i64>,
+}
+
+async fn create_look(
+  State(app): State<Arc<App>>,
+  Query(q): Query<LookQuery>,
+  Json(body): Json<NewLook>,
+) -> Response {
+  let wait = q.wait_ms.unwrap_or(0).clamp(0, 600_000);
+  if body.question.trim().is_empty() {
+    return failure(StatusCode::BAD_REQUEST, "bad-request", "a look needs a question");
+  }
+  if body.sources.is_empty() {
+    return failure(StatusCode::BAD_REQUEST, "bad-request", "a look needs at least one source");
+  }
+  if body.mode == Mode::Watch && body.sources.len() != 1 {
+    return failure(StatusCode::BAD_REQUEST, "bad-request", "a watch look takes one source");
+  }
+  if body.mode != Mode::Watch && body.sources.len() > 16 {
+    return failure(StatusCode::TOO_MANY_REQUESTS, "too-large", "a look takes sixteen sources at most");
+  }
+  // The sources are read once here, so a missing upload or an unreadable path is refused as a request.
+  let mut described = Vec::new();
+  for source in &body.sources {
+    match source {
+      SourceRef::Upload { upload_id } => {
+        let upload = match app.store.upload(*upload_id) {
+          Ok(u) => u,
+          Err(_) => return failure(StatusCode::NOT_FOUND, "not-found", format!("no upload {upload_id}")),
+        };
+        described.push(media::describe(source, upload.bytes, &upload.media_type));
+      }
+      SourceRef::Path { path } => {
+        let p = expand(path);
+        let size = match std::fs::metadata(&p) {
+          Ok(m) => m.len() as i64,
+          Err(e) => {
+            return failure(StatusCode::UNPROCESSABLE_ENTITY, "unsupported-source", format!("{path}: {e}"));
+          }
+        };
+        let media = media::media_type_of(path).unwrap_or("application/octet-stream");
+        if let Err(why) = fits(body.mode, media) {
+          return failure(StatusCode::UNPROCESSABLE_ENTITY, "unsupported-source", format!("{path}: {why}"));
+        }
+        described.push(media::describe(source, size, media));
+      }
+      SourceRef::Url { url } if !url.starts_with("https://") => {
+        return failure(
+          StatusCode::UNPROCESSABLE_ENTITY,
+          "unsupported-source",
+          format!("{url}: an address must be https"),
+        );
+      }
+      SourceRef::Url { url } => {
+        described.push(media::describe(
+          source,
+          0,
+          media::media_type_of(url).unwrap_or("application/octet-stream"),
+        ));
+      }
+    }
+  }
+  let look = match app.store.create_look(&body, &described) {
+    Ok(l) => l,
+    Err(e) => return failure(StatusCode::INTERNAL_SERVER_ERROR, "failed", e),
+  };
+  let _ = app.store.event("look.created", &serde_json::json!({"id": look.id}));
+  let id = look.id;
+  let app2 = app.clone();
+  tokio::spawn(async move { run_look(app2, id).await });
+  if wait == 0 {
+    return (StatusCode::CREATED, Json(app.store.look(id).unwrap_or(look))).into_response();
+  }
+  let started = std::time::Instant::now();
+  loop {
+    match app.store.look(id) {
+      Ok(l) if l.state == "done" || l.state == "failed" || l.state == "stopped" => {
+        return (StatusCode::CREATED, Json(l)).into_response();
+      }
+      Ok(_) if started.elapsed().as_millis() as i64 >= wait => {
+        return (StatusCode::CREATED, Json(app.store.look(id).unwrap_or(look))).into_response();
+      }
+      Ok(_) => tokio::time::sleep(std::time::Duration::from_millis(100)).await,
+      Err(e) => return failure(StatusCode::INTERNAL_SERVER_ERROR, "failed", e),
+    }
+  }
+}
+
+fn fits(mode: Mode, media: &str) -> Result<(), String> {
+  let ok = match mode {
+    Mode::See => media.starts_with("image/"),
+    Mode::Read => media.starts_with("image/") || media == "application/pdf",
+    Mode::Watch => media.starts_with("video/"),
+  };
+  if ok { Ok(()) } else { Err(format!("{media} is not what {} reads", mode.as_str())) }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ListQuery {
+  after: Option<i64>,
+  limit: Option<i64>,
+  mode: Option<String>,
+  state: Option<String>,
+}
+
+async fn list_looks(State(app): State<Arc<App>>, Query(q): Query<ListQuery>) -> Response {
+  let limit = q.limit.unwrap_or(50).clamp(1, 200);
+  match app.store.looks(limit, q.after, q.mode.as_deref(), q.state.as_deref()) {
+    Ok(page) => Json(page).into_response(),
+    Err(e) => failure(StatusCode::INTERNAL_SERVER_ERROR, "failed", e),
+  }
+}
+
+async fn get_look(State(app): State<Arc<App>>, Path(id): Path<i64>) -> Response {
+  match app.store.look(id) {
+    Ok(l) => Json(l).into_response(),
+    Err(_) => failure(StatusCode::NOT_FOUND, "not-found", format!("no look {id}")),
+  }
+}
+
+async fn delete_look(State(app): State<Arc<App>>, Path(id): Path<i64>) -> Response {
+  match app.store.look(id) {
+    Err(_) => failure(StatusCode::NOT_FOUND, "not-found", format!("no look {id}")),
+    Ok(l) if l.state == "queued" || l.state == "running" => match app.store.stop(id) {
+      Ok(true) => {
+        let _ = app.store.event("look.stopped", &serde_json::json!({"id": id}));
+        StatusCode::NO_CONTENT.into_response()
+      }
+      _ => StatusCode::NO_CONTENT.into_response(),
+    },
+    Ok(_) => StatusCode::NO_CONTENT.into_response(),
+  }
+}
+
+async fn create_upload(
+  State(app): State<Arc<App>>,
+  headers: HeaderMap,
+  body: axum::body::Bytes,
+) -> Response {
+  let media = headers
+    .get(axum::http::header::CONTENT_TYPE)
+    .and_then(|v| v.to_str().ok())
+    .map(|s| s.split(';').next().unwrap_or(s).trim().to_string())
+    .unwrap_or_else(|| "application/octet-stream".into());
+  let ceiling: usize = if media.starts_with("video/") { 2 * 1024 * 1024 * 1024 } else { 20 * 1024 * 1024 };
+  if body.len() > ceiling {
+    return failure(
+      StatusCode::PAYLOAD_TOO_LARGE,
+      "too-large",
+      format!("{} bytes is over the ceiling", body.len()),
+    );
+  }
+  if !(media.starts_with("image/") || media == "application/pdf" || media.starts_with("video/")) {
+    return failure(
+      StatusCode::UNPROCESSABLE_ENTITY,
+      "unsupported-source",
+      format!("{media} is not a source a mode reads"),
+    );
+  }
+  let digest = format!("{:x}", sha2::Sha256::digest(&body));
+  match app.store.create_upload(&media, &body, &digest) {
+    Ok(u) => (StatusCode::CREATED, Json(u)).into_response(),
+    Err(e) => failure(StatusCode::INTERNAL_SERVER_ERROR, "failed", e),
+  }
+}
+
+async fn upload_content(State(app): State<Arc<App>>, Path(id): Path<i64>) -> Response {
+  match app.store.upload_bytes(id) {
+    Ok(bytes) => {
+      let media = app
+        .store
+        .upload(id)
+        .map(|u| u.media_type)
+        .unwrap_or_else(|_| "application/octet-stream".into());
+      ([(axum::http::header::CONTENT_TYPE, media)], bytes).into_response()
+    }
+    Err(_) => failure(StatusCode::NOT_FOUND, "not-found", format!("no upload {id}")),
+  }
+}
+
+async fn delete_upload(State(app): State<Arc<App>>, Path(id): Path<i64>) -> Response {
+  match app.store.upload(id) {
+    Err(_) => failure(StatusCode::NOT_FOUND, "not-found", format!("no upload {id}")),
+    Ok(_) => match app.store.delete_upload(id) {
+      Ok(()) => StatusCode::NO_CONTENT.into_response(),
+      Err(e) => failure(StatusCode::INTERNAL_SERVER_ERROR, "failed", e),
+    },
+  }
+}
+
+async fn get_modes(State(app): State<Arc<App>>) -> Response {
+  Json(modes(&app.settings).await).into_response()
+}
+
+#[derive(Debug, Deserialize)]
+struct EventQuery {
+  after: Option<i64>,
+}
+
+async fn events(State(app): State<Arc<App>>, Query(q): Query<EventQuery>) -> Response {
+  let mut last = q.after.unwrap_or(0);
+  let store = app.store.clone();
+  let stream = async_stream(move |tx| async move {
+    loop {
+      let rows = match store.events_since(last, 200) {
+        Ok(r) => r,
+        Err(_) => break,
+      };
+      for (id, kind, at, data) in rows {
+        last = id;
+        let payload = serde_json::json!({"id": id, "kind": kind, "at": at, "data": serde_json::from_str::<serde_json::Value>(&data).unwrap_or_default()});
+        if tx
+          .send(Event::default().event(kind).id(id.to_string()).data(payload.to_string()))
+          .await
+          .is_err()
+        {
+          return;
+        }
+      }
+      tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+  });
+  Sse::new(stream).into_response()
+}
+
+/// A stream built from a loop, without another dependency.
+fn async_stream<T, F, Fut>(build: F) -> impl Stream<Item = Result<T, std::convert::Infallible>> + Send
+where
+  F: FnOnce(tokio::sync::mpsc::Sender<T>) -> Fut,
+  Fut: std::future::Future<Output = ()> + Send + 'static,
+  T: Send + 'static,
+{
+  let (tx, mut rx) = tokio::sync::mpsc::channel::<T>(64);
+  tokio::spawn(build(tx));
+  futures_util::stream::poll_fn(move |cx| rx.poll_recv(cx)).map(Ok)
+}
+
+use futures_util::StreamExt as _;
+
+/// The work behind one look: the sources, the frames and speech, then the chain.
+pub async fn run_look(app: Arc<App>, id: i64) {
+  let look = match app.store.look(id) {
+    Ok(l) => l,
+    Err(_) => return,
+  };
+  if look.state == "stopped" {
+    return;
+  }
+  let _ = app.store.set_running(id);
+  let _ = app.store.event("look.running", &serde_json::json!({"id": id}));
+  let mode = Mode::parse(&look.mode).unwrap_or(Mode::See);
+  let outcome = prepare_and_answer(&app, &look, mode).await;
+  let state = if outcome.error.is_none() { LookState::Done } else { LookState::Failed };
+  if let Err(e) = app.store.finish(id, state, &outcome) {
+    let failed = Outcome {
+      error: Some(e),
+      ..outcome
+    };
+    let _ = app.store.finish(id, LookState::Failed, &failed);
+    let _ = app.store.event("look.failed", &serde_json::json!({"id": id}));
+    return;
+  }
+  let _ = app.store.event(
+    if state == LookState::Done { "look.done" } else { "look.failed" },
+    &serde_json::json!({"id": id, "backend": outcome.backend.map(|b| b.name)}),
+  );
+}
+
+async fn prepare_and_answer(app: &Arc<App>, look: &Look, mode: Mode) -> Outcome {
+  let settings = &app.settings;
+  let question = look.question.clone();
+  let _registered: Vec<SourceRef> = look
+    .sources
+    .iter()
+    .map(|s| match s.kind.as_str() {
+      "upload" => SourceRef::Upload {
+        upload_id: s.upload_id.unwrap_or(0),
+      },
+      "url" => SourceRef::Url {
+        url: s.url.clone().unwrap_or_default(),
+      },
+      _ => SourceRef::Path {
+        path: s.path.clone().unwrap_or_default(),
+      },
+    })
+    .collect();
+  let kinds: Vec<String> = look.sources.iter().map(|s| s.kind.clone()).collect();
+  let mut images = Vec::new();
+  let mut material = Material {
+    text: question.clone(),
+    ..Material::default()
+  };
+  let mut video: Option<(std::path::PathBuf, bool)> = None;
+  for (i, source) in look.sources.iter().enumerate() {
+    let (bytes, media, path) =
+      match media::read_source(&settings, &app.store, source, &app.settings.root()).await {
+        Ok(v) => v,
+        Err(e) => {
+          return Outcome {
+            error: Some(e),
+            ..Outcome::default()
+          };
+        }
+      };
+    match mode {
+      Mode::Watch => {
+        // A path the caller named is never touched; a copy this service wrote in its work folder is its own
+        // to remove.
+        video = match path {
+          // Only a path the caller named is the caller's; anything the service fetched or wrote is its own
+          // to remove.
+          Some(p) => Some((p, look.sources.get(i).map(|s| s.kind.as_str()) != Some("path"))),
+          None => {
+            let p = expand(&settings.media.work_dir).join(format!("look-{}-{i}.video", look.id));
+            let written = p.parent().map(|dir| std::fs::create_dir_all(dir).is_ok()).unwrap_or(false)
+              && std::fs::write(&p, &bytes).is_ok();
+            if written { Some((p, true)) } else { None }
+          }
+        };
+      }
+      _ => {
+        if media == "application/pdf" {
+          let p = expand(&settings.media.work_dir).join(format!("look-{}-{i}.pdf", look.id));
+          if let Some(dir) = p.parent() {
+            let _ = std::fs::create_dir_all(dir);
+          }
+          if let Err(e) = std::fs::write(&p, &bytes) {
+            return Outcome {
+              error: Some(e.to_string()),
+              ..Outcome::default()
+            };
+          }
+          match media::pdf_pages(settings, &p, look.options.pages.as_deref()) {
+            Ok(mut parts) => images.append(&mut parts),
+            Err(e) => {
+              return Outcome {
+                error: Some(e),
+                ..Outcome::default()
+              };
+            }
+          }
+        } else {
+          images.push(media::ImagePart {
+            bytes,
+            media_type: media,
+          });
+        }
+      }
+    }
+  }
+  let _pages: Option<Vec<Page>> = None;
+  if mode == Mode::Watch {
+    let Some((path, ours)) = video else {
+      return Outcome {
+        error: Some("the video could not be read".into()),
+        ..Outcome::default()
+      };
+    };
+    let (frames, fps) = match media::frames(
+      settings,
+      &path,
+      look.options.max_frames,
+      look.options.fps,
+      look.options.start_s,
+      look.options.end_s,
+    ) {
+      Ok(v) => v,
+      Err(e) => {
+        return Outcome {
+          error: Some(format!("the frames: {e}")),
+          ..Outcome::default()
+        };
+      }
+    };
+    if frames.is_empty() {
+      return Outcome {
+        error: Some("no frame was taken from the video".into()),
+        ..Outcome::default()
+      };
+    }
+    material.duration_s = media::probe_duration(settings, &path).ok();
+    material.frames = Some(Frames {
+      count: frames.len() as i64,
+      fps,
+      tokens_per_frame: None,
+    });
+    images = frames;
+    if look.options.speech {
+      match media::audio(settings, &path) {
+        Ok(wav) => {
+          let heard = media::speech(settings, &wav, &look.options.language).await;
+          let _ = std::fs::remove_file(&wav);
+          match heard {
+            Ok(s) => {
+              material.text = format!("{question}\n\n[음성 녹취]\n{}", s.text);
+              material.speech = Some(s);
+            }
+            Err(e) => {
+              eprintln!("bmo-eye: the speech of look {}: {e}", look.id);
+              material.text = format!("{question}\n\n[음성 녹취를 읽지 못했다: {e}]");
+            }
+          }
+        }
+        Err(e) => {
+          eprintln!("bmo-eye: the audio of look {}: {e}", look.id);
+          material.text = format!("{question}\n\n[음성 녹취를 읽지 못했다: {e}]");
+        }
+      }
+    }
+    if ours {
+      let _ = std::fs::remove_file(&path);
+    }
+  }
+  material.images = images.clone();
+  if mode == Mode::Read && images.len() > 1 {
+    // A document is asked page by page, so `pages` carries each page's own answer.
+    let chain = Chain::for_mode(settings, mode);
+    let mut collected = Vec::new();
+    let mut first: Option<Outcome> = None;
+    for (i, image) in images.into_iter().enumerate() {
+      let one = Material {
+        text: question.clone(),
+        images: vec![image],
+        ..Material::default()
+      };
+      let outcome = chain.walk(settings, mode, &one, &kinds).await;
+      match &outcome.answer {
+        Some(a) => collected.push(Page {
+          page: i as i64 + 1,
+          text: a.text.clone(),
+        }),
+        None => {
+          if first.is_none() {
+            first = Some(outcome);
+          }
+          break;
+        }
+      }
+      if first.is_none() {
+        first = Some(outcome);
+      }
+    }
+    let mut outcome = first.unwrap_or_default();
+    if collected.len() == look.sources.len().max(1) || !collected.is_empty() {
+      outcome.pages = Some(collected);
+    }
+    return outcome;
+  }
+  let chain = Chain::for_mode(settings, mode);
+  chain.walk(settings, mode, &material, &kinds).await
+}

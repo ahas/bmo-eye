@@ -3,8 +3,25 @@
 testbed = 0
 name = "bmo-eye"
 
+[test]
+# The workspace's crates and the repository's own tests under tests/, which walk the routes against a
+# stand-in Lab-arena node.
+languages = ["cargo"]
+
 [check]
-# The repository holds documents and a measurement harness, and no code a check compiles. The quick checks
-# that read a tree are the layout sweep; stage 2 adds the workspace, its checks and its tests
-# (docs/plan.md).
-quick = ["layout"]
+quick = ["layout", "dependencies", "korean"]
+korean_ledger = "korean-ledger.json"
+
+[[check.step]]
+id = "check"
+command = "cargo check --workspace --all-targets"
+lane = "wide"
+
+[[check.step]]
+id = "test"
+command = "cargo test --workspace"
+lane = "wide"
+
+[[check.step]]
+id = "fmt"
+command = "cargo fmt --all --check"

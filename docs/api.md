@@ -5,9 +5,9 @@ answer shape for all three modes and for every backend of their chains. It state
 the version the server carries at its first release; the server is stage 2 of `docs/plan.md` and nothing
 serves these routes yet.
 
-The server runs on the node that holds the card (n2, `docs/n2.md`). It owns the model processes, takes
-the card's turn from bmo-arbiter, and calls the hosted backends itself. A caller never reaches a model
-directly.
+The server runs on the operations machine and holds no model and no card (`docs/engines.md`). It calls the
+Lab-arena engines on n3 to n6 and the hosted backends itself, and reads a video's speech on n2's CPU. A caller
+never reaches an engine directly.
 
 ## Wire format
 
@@ -42,7 +42,7 @@ look is a member of the service and keeps its record after it ends.
 | `POST /looks` | query `waitMs?`; body is a look taken in | 201, the `Look` |
 | `GET /looks` | query `after?`, `limit?`, `mode?`, `state?` | 200, a `LookPage`, newest first |
 | `GET /looks/{lookId}` | | 200, the `Look` |
-| `DELETE /looks/{lookId}` | | 204; a running look is stopped and its backend lets go of the card |
+| `DELETE /looks/{lookId}` | | 204; a running look is stopped and its backend's answer is abandoned |
 
 - **`waitMs`** is how long the route holds the answer open: zero where absent, at most `600000`. The look
   is created either way; a caller that waits past its time reads the look again.
@@ -81,7 +81,7 @@ where its bytes are a video file; a YouTube link is a `url` and is downloaded on
 | `question` | The question as asked |
 | `sources` | The sources as read, each with `kind`, its key, `mediaType`, `bytes`, and `width`/`height` or `durationMs` where they are known |
 | `options` | The options the look ran with, defaults filled in |
-| `backend` | The backend that answered: `name`, `model`, or null |
+| `backend` | The backend that answered: `name`, `node`, `model`, or null |
 | `chain` | Every backend tried, in order (「The chain report」) |
 | `answer` | The answer, `{ "text", "format" }`, or null |
 | `speech` | For `watch`: the speech read from the audio, or null (「Speech」) |
@@ -149,8 +149,9 @@ upload for as long as a look names it, and removes it a day after its last look 
 | `tables` | `true` or `false`, whether a table is answered as markdown | `true` |
 
 `GET /modes` answers the three modes as they stand: for each, its `mode`, the `chain` it asks in order,
-and for each backend of that chain its `name`, `model`, `state` (`ready`, `busy`, `down`, `unconfigured`)
-and `reason`. A tool host reads it to say whether vision is available at all; an agent reads it to know
+and for each backend of that chain its `name`, `node` where it has one, `model`, `state` (`ready`, `busy`,
+`down`, `unconfigured`) and `reason`. The `lab-arena` backend stands once per node it can reach, so the chain
+shown is the order the look will ask them in. A tool host reads it to say whether vision is available at all; an agent reads it to know
 which transport a look will take.
 
 ## The chain report
@@ -160,7 +161,8 @@ is every backend that stood before the answer, in the order they were asked:
 
 | Field | Holds |
 |---|---|
-| `backend` | `n2`, `openrouter`, `gemini` or `caller` |
+| `backend` | `lab-arena`, `openrouter`, `gemini` or `caller` |
+| `node` | The node the rung stood on, or null: `n3`, `n4`, `n5`, `n6` for the Lab-arena set |
 | `model` | The model that backend would use, or null |
 | `state` | `answered`, `failed`, `skipped` or `handed-off` |
 | `reason` | Why it failed or was skipped, in English, or null |
@@ -169,9 +171,9 @@ is every backend that stood before the answer, in the order they were asked:
 - **`skipped`** is a backend the look's sources or options cannot reach — an image in a chain step that
   takes video, a hosted backend with no key configured, a `handed-off` caller that takes no such input.
   Its `reason` names the rule.
-- **`failed`** is a backend that was tried and did not answer: the card could not be had inside the
-  look's wait, the model refused the input, the hosted call failed. `reason` is the failure as a
-  sentence, and the next backend is asked.
+- **`failed`** is a backend that was tried and did not answer: the node did not answer inside the look's
+  wait, the model refused the input, the hosted call failed. `reason` is the failure as a sentence, and the
+  next backend is asked.
 - **`answered`** ends the chain; `backend` names that entry.
 - **`handed-off`** ends the chain with no answer of the server's: the last rung of a chain whose caller
   takes the input natively. The look ends `done` with `answer` null and `backend.name` `caller`, and the
@@ -208,8 +210,8 @@ answer is written.
 `watch` reads the video's speech apart from its frames, so the answer rests on what was said as well as
 on what was shown. `speech.text` is the transcript and `speech.language` its language; `speech.model`
 names what read it. A video with no audio, or with `speech: false`, answers `speech` null. The transcript
-is the backend's own when the backend hears audio (Gemini), and the node's speech model otherwise
-(faster-whisper on n2, `docs/n2.md`).
+is the backend's own when the backend hears audio (Gemini), and n2's CPU speech model otherwise
+(faster-whisper `large-v3` int8, `docs/engines.md`).
 
 ## Limits
 
@@ -219,4 +221,5 @@ is the backend's own when the backend hears audio (Gemini), and the node's speec
 | Sources in one look | 16 for `see` and `read`, 1 for `watch` |
 | A YouTube link | 2 hours, 1080p at most |
 | `waitMs` | 600,000 |
-| One node's models on the card | one at a time, `docs/n2.md` |
+| Frames in one `watch` look | 12 where none is asked, 1024 at most |
+| One look's pictures | 16, and each is about 300 tokens of the node's context |

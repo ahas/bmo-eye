@@ -1,148 +1,92 @@
-# The plan for stage 2
+# The plan, and what of it stands
 
-Stage 1 settled what bmo-eye is: three modes, one request and answer shape, one model per mode on n2, and a
-chain of backends behind each mode. Its documents are `docs/api.md`, `docs/modes.md` and `docs/n2.md`; its
-measurements are in `docs/n2.md` and in the archive document this stage leaves.
+The vision unit was planned in two stages: a stage that settled what it is, and a stage that built it. The
+first stage settled the modes, the API and the chains; the second was steered away from a model of its own
+when the owner's direction of 2026-10-27 09:34 KST said the Qwen3.8 set already standing on n3 to n6 would
+read the pictures. This document states what stands now and what is still to build.
 
-Stage 2 is a separate item after this plan is reviewed. Nothing here is built or deployed by the stage 1
-job.
+## What stands
 
-## What stage 2 builds
+| Part | Where it stands |
+|---|---|
+| the API | `docs/api.md`, served by `bmo-eye` on main-host at `127.0.0.1:7435` |
+| the modes and their chains | `docs/modes.md`, one chain per mode over the same four Lab-arena instances |
+| the engines it looks through | `docs/engines.md`: the Qwen3.8-Flash-Next set on n3 to n6, the picture reader, and n2's CPU for speech |
+| the server | `crates/server`, the binary `bmo-eye`, with the store, the chain and the four backends |
+| the client | `crates/client`, the types and the HTTP client the command and the tests use |
+| the command | `bmo eye see`, `bmo eye read`, `bmo eye watch`, `bmo eye looks`, `bmo eye look`, `bmo eye modes` |
+| the tests | `tests/api.rs`: a stand-in Lab-arena node and the routes walked against it |
 
-1. **The Rust server on n2** that serves `docs/api.md`: looks, uploads, modes, events and health, with the
-   three mode chains behind them.
-2. **The `bmo eye` noun** in the platform's CLI, with the sub-verbs `watch`, `see` and `read`.
-3. **The tool the tool host places,** so an agent calls a look through the host and not through a shell.
-4. **The agency rule** that an agent looks at an image or a video through bmo-eye first.
-5. **The deployment**: the arbiter declaration and its rules entry, the n2 install, and the testbed
-   declaration that puts it all on the node.
+The server holds no weights, no card and no VRAM: a look is answered by a Lab-arena instance, and the vision
+unit's own cost is a request on the network and an ffmpeg process for a video.
+
+## What is still to build
+
+1. **The tool the tool host places.** A `tool.toml` with one entry per mode (`eye/see`, `eye/read`,
+   `eye/watch`), registered by this repository's deployment with `bmo-pocket put --service bmo-eye`, so an
+   agent calls a look through the host rather than a shell.
+2. **The agency rule.** One line in the agency's role prompts and the tool session's brief: an agent looks
+   at an image or a video through bmo-eye first unless its instruction says otherwise.
+3. **The unit.** `bmo-eye.service` on main-host, its settings file, and the road the platform reaches it by.
+4. **The testbed.** The repository's `testbed.toml` gains the workspace, its checks and a suite that answers
+   one look per mode against the samples of `docs/modes.md`.
 
 ## The server
 
-One binary, `bmo-eye`, a Rust workspace at this repository's root, serving the routes of `docs/api.md` on
-n2's loopback behind the platform's token.
+One binary, `bmo-eye`, a Rust workspace at this repository's root.
 
-- **Shape.** `server/` holds the routes, the store and the chain; `client/` the Rust client; `plugin/` the
-  MCP server and the `bmo-eye` skill; `runtime/` the three model drivers; `crates/eye-core` the types the
-  routes, the client and the plugin share.
-- **The store** is SQLite in the service's data root, `~/.local/share/bmo-eye/`: looks, uploads and the
-  event table. An upload's bytes stand in the same folder, named by the upload's id and its sha256.
-- **The chain** is code, not configuration: each mode's chain is a fixed list of backends in the order
-  `docs/modes.md` states, and each backend answers one trait — whether it takes a look's sources, how it
-  reads them, and what it answers. A backend that is not configured answers `unconfigured` and is skipped;
-  the chain never grows by adding a row to a table.
-- **The model drivers** are processes the server starts, stops and talks to over HTTP on the node's
-  loopback: `llama-server` for the two 27B models, the OCR runtime for DeepSeek-OCR-2, and
-  `faster-whisper` for speech. The server never forks a model's own code and never loads weights into its
-  own address space.
-- **The card** is taken through the arbiter's turn client on the node (`~/bmo-card/turn.py` as it stands, or
-  the Rust client) as `eye`, for as long as a model of the look's mode stands on the card. A model that has
-  answered stays resident for `keepMs` (default 600000) with its turn rested, and gives way when any other
-  occupant asks. The declaration is `docs/n2.md`, 「The declaration」.
-- **The processes are stopped** by the master when a lower-tier occupant or a claimant asks for the card:
-  the declaration yields by its process, and the adapter's `stop` takes the models off the card and
-  `start` brings the resident one back.
+- **Shape.** `crates/server` holds the routes, the store and the chain; `crates/client` the types and the
+  HTTP client; the binary's first word is the noun `eye`, which is how `bmo` hands it a command.
+- **The store** is SQLite in `~/.local/share/bmo-eye/`: looks, uploads and the event table. An upload's
+  bytes stand in the same folder, named by its id and its sha256.
+- **The chain** is code, not configuration: each mode's chain is the list `docs/modes.md` states, and each
+  backend answers one trait — whether it takes a look's sources, how it reads them, and what it answers. A
+  backend that is not configured answers `unconfigured` and is skipped.
+- **The Lab-arena backend** stands once per node in the order n3, n4, n5, n6, each with the node's address,
+  key and model name from the settings file. It sends the pictures as `data:` URLs with thinking off.
+- **The video path** is ffmpeg on the service's machine for frames and audio, and n2's CPU whisper, reached
+  through the jake hub's control API, for the speech. Neither touches a card.
+- **The hosted backends** are called by the service itself: OpenRouter with the key the data root holds, and
+  Gemini where a key is configured.
 
-**Acceptance:** every route of `docs/api.md` answers its documented codes, `docs/openapi.json` is generated
-from the server's own types and a test fails when it differs, and the three chains answer a look end to end
-on n2 with the arbiter holding the card.
+**Acceptance:** every route of `docs/api.md` answers its documented codes, and the three modes answer a look
+end to end on real inputs with the backend, the node and the time recorded. Both were met on n3 on
+2026-10-27: a screenshot in 2.7 s, a photo of a receipt in 2.9 s, a document scan in 5.2 s and a one-minute
+video in 62 s, each answered by `lab-arena` on n3, and `cargo test` green over the routes.
 
-## The CLI
+## The command
 
-`bmo eye` is one noun in the platform's CLI, handed to the `bmo-eye` binary the way every other noun is:
-the noun registry in the CLI's own repository gains one entry, and the server's repository ships the binary.
+`bmo eye` is one noun in the platform's CLI, handed to `bmo-eye` the way every other noun is: the binary
+declares the noun `eye` when asked `nouns`, and the platform finds it on the path.
 
 | Command | Does |
 |---|---|
-| `bmo eye see <source>… [-q question]` | creates a `see` look and prints its answer |
-| `bmo eye read <source>… [-q question]` | creates a `read` look and prints its answer |
-| `bmo eye watch <source> [-q question]` | creates a `watch` look and prints its answer |
+| `bmo eye see <source>… -q <question>` | creates a `see` look and prints its answer |
+| `bmo eye read <source>… [-q <question>]` | creates a `read` look and prints the transcription |
+| `bmo eye watch <source> -q <question>` | creates a `watch` look and prints its answer |
 | `bmo eye looks` | lists the looks, newest first |
 | `bmo eye look <lookId>` | prints one look |
-| `bmo eye modes` | prints the three chains and what stands behind each |
+| `bmo eye modes` | prints the chains and what stands behind each rung |
 
-- A source is a path, an `https` URL or a YouTube link; a path is uploaded first, and a YouTube link is
-  handed to the server as a `url`.
-- `--json` prints the member or the page exactly as the API answers it; `--format markdown|json` sets the
-  answer's format; `--wait <seconds>` sets `waitMs`; `--speech/--no-speech`, `--fps`, `--max-frames`,
-  `--pages` and `--language` carry the mode's options.
-- The command exits 0 on a look that ended `done` and non-zero, naming the reason, on `failed` or
-  `stopped`.
+`--json` prints the member or the page exactly as the API answers it; `--format`, `--wait`, `--fps`,
+`--max-frames`, `--pages` and `--language` carry the mode's options; a look that ended `failed` exits
+non-zero with the reason.
 
-**Acceptance:** each sub-verb answers against the n2 server, `--json` matches the API byte for byte, and a
-path, a URL and a YouTube link are each exercised.
+## What this build must not cost
 
-## The tool
+- **The Lab-arena text path.** A picture takes nothing from the card and nothing from a text row's tokens per
+  second; what it takes is the node's queue while the reader encodes. The measurement is in
+  `docs/modes.md`.
+- **A card on n2.** Nothing of the vision unit takes a turn; the leftover `eye` occupant and placement of
+  stage 1 are to be removed by the operator (`docs/engines.md`, 「The card」).
+- **A new model.** No weight is downloaded: the pictures are read by the set that already stands, and the
+  speech by the model stage 1 installed on n2.
 
-The service registers its own tool through its deployment, `bmo-pocket put --service bmo-eye`, with a
-`tool.toml` at this repository's root. One entry per mode, so a harness sees three tools with the three
-questions its schema asks:
+## What is still to measure
 
-| Tool | Answers |
-|---|---|
-| `eye/see` | looks at images and answers a question about them |
-| `eye/read` | reads a document page or a table and answers its text |
-| `eye/watch` | looks at a video and answers a question about it, with its speech |
-
-- Each entry's input is the look's body of its mode; its output is the `Look`, `answer.text` first.
-- A tool call carries the harness's own files: the host uploads a path the harness names, so an agent
-  screenshots or downloads into a file and calls the tool with it.
-- The MCP server is `bmo-eye mcp`, and the skill beside it tells a harness which mode to ask for what.
-
-**Acceptance:** `bmo use eye/see --arg path=… --arg question=…` answers from a fresh session, and a call
-from the tool host's own MCP session answers the same look shape.
-
-## The agency rule
-
-The agents look at an image or a video through bmo-eye first unless their instruction says otherwise. That
-is one rule in the agency's role prompts and one line in the tool session's brief; it is not a change to
-any agent's own repository.
-
-**Acceptance:** a fresh agent session with an image path in its instruction calls `eye/see` before it opens
-the file itself, and a session told to look for itself does not.
-
-## The node
-
-The install on n2 is `docs/n2.md` as it stands: llama.cpp, the three model files, the speech model, the
-data root and the units. What stage 2 adds:
-
-- **The service's unit,** `bmo-eye.service` on n2, which starts the server and nothing else: the model
-  processes are the server's children and are stopped with it.
-- **The arbiter declaration, applied by the operator.** `eye.card.toml` stands in this repository;
-  `docs/n2.md` states it and the operator adds `eye` to the card rules at tier 1, and the repository root
-  to the master's declaration roots.
-- **The service's own placement,** `POST /placements` with `eye` on `n2`, so the node's occupants carry it.
-
-**Acceptance:** a look answered on n2 leaves the card empty when it ends, `gguf-llm` back on it, and the
-master's events showing `occupant-stopped` and `occupant-started` for it as they do today.
-
-## The testbed
-
-The repository's `testbed.toml` declares what a testbed run brings up: the server from this tree, the
-node's units, and the checks that read back one look per mode against the samples stage 1 measured. A test
-that needs the card is marked as one and skipped where the card cannot be had.
-
-**Acceptance:** `bmo testbed run` on this repository brings the server up on n2 and answers three looks,
-one per mode, from the samples folder.
-
-## The order of the work
-
-1. The server's types and routes with the chain as a trait, `see` first: it needs one model and no video.
-2. The CLI noun and its client calls; the archive's own samples become the checks.
-3. `read`: the OCR runtime driver and its page loop.
-4. `watch`: frame extraction, the speech driver and the long-video path.
-5. The tool, the skill and the agency rule.
-6. The deployment: declaration, unit, testbed, and the operator's rules entry.
-
-Each step ends with `bmo check` green and the modes' samples answering, and the whole with the suite and
-the n2 run.
-
-## What stage 2 must re-measure
-
-- **The swap between the three models** with the real server, not a hand-run model: the time from a `see`
-  look arriving while `watch`'s model rests to its first token.
-- **The keep policy's cost on the other occupants**: how long `gguf-llm` is off the card across a day of
-  looks, from the master's own events.
-- **The resident set under the new shapes**: whether a 27B and the OCR runtime can stand together at any
-  point (stage 1 measured them alone), and whether the `see` model is fast enough to be `read`'s fallback.
-- **Gemini and OpenRouter** from the node, with a key, for the input each takes.
+- **The four nodes' picture quality against each other,** on the samples of `docs/modes.md`: n3's general
+  pack against the Coder pack behind it.
+- **A hard document:** a folded page, handwriting, a phone photo — what the 3-bit general pack does when
+  the page is not clean.
+- **The nodes under the borrowing engine,** where a picture's answer took 63 s once against 5 s on an idle
+  node.

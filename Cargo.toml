@@ -1,0 +1,58 @@
+# The workspace: the crates the vision unit is built from under `crates/`, and the repository's own package
+# at the root, which holds the tests that span them. The unit serves one API (`docs/api.md`) and carries no
+# model of its own (`docs/engines.md`).
+[workspace]
+members = ["crates/client", "crates/server"]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0-rev.1"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+axum = { version = "0.8.4", default-features = false, features = ["http1", "json", "query", "tokio"] }
+base64 = "0.22.1"
+clap = { version = "4.5.40", features = ["derive", "env"] }
+futures-util = "0.3.34"
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls", "http2"] }
+rusqlite = { version = "0.37.0", features = ["bundled"] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.138"
+sha2 = "0.10.9"
+tokio = { version = "1.47.0", features = ["macros", "rt-multi-thread", "net", "time", "signal", "io-util", "process", "fs", "sync"] }
+tokio-stream = "0.1.17"
+toml = { version = "0.8.23", default-features = false, features = ["parse"] }
+tower = { version = "0.5.2", default-features = false, features = ["util"] }
+tower-http = { version = "0.6.6", default-features = false, features = ["fs"] }
+url = "2.5.4"
+
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+incremental = false
+
+[profile.release]
+debug = false
+strip = "debuginfo"
+
+[package]
+name = "eye-checks"
+description = "The repository's tests: the checks that span every crate and a document."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+axum.workspace = true
+bmo-eye-client = { path = "crates/client" }
+eye-server = { path = "crates/server" }
+reqwest.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
