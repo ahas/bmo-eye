@@ -29,11 +29,11 @@ fn default_listen() -> String {
 }
 
 fn default_root() -> String {
-  "~/.local/share/bmo-eye".into()
+  "~/.local/share/bmo/data/eye".into()
 }
 
 fn default_token_file() -> String {
-  "~/.local/share/bmo-eye/token".into()
+  "~/.local/share/bmo/data/eye/token".into()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -227,11 +227,11 @@ fn default_ffmpeg() -> String {
 }
 
 fn default_ytdlp() -> String {
-  "~/.local/share/bmo-eye/venv/bin/yt-dlp".into()
+  "~/.local/share/bmo/data/eye/venv/bin/yt-dlp".into()
 }
 
 fn default_work() -> String {
-  "~/.local/share/bmo-eye/work".into()
+  "~/.local/share/bmo/data/eye/work".into()
 }
 
 impl Default for Media {

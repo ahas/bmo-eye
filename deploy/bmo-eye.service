@@ -1,0 +1,23 @@
+[Unit]
+Description=bmo-eye: the platform's vision unit — one look at an image, a document or a video, answered by the Lab-arena engines
+After=network-online.target
+# Without its settings the service has no listen address, no store and no way to the nodes, so the unit does
+# not start where the deployment wrote none.
+ConditionPathExists=%h/.local/share/bmo/data/eye/settings.toml
+
+[Service]
+# The service reads its settings and store under the data root's eye/ folder and answers its routes. It holds
+# no model and no card: a look is a request to a Lab-arena node.
+Type=simple
+WorkingDirectory=%h/.local/share/bmo-eye/deploy
+ExecStart=%h/.local/share/bmo-eye/deploy/bin/bmo-eye serve
+Environment=BMO_DATA_DIR=%h/.local/share/bmo/data
+Environment=PATH=%h/.local/bin:%h/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Restart=always
+RestartSec=2
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target
+# The repository's one service: stopped, restarted and watched by every deployment, which waits on its health.
+X-BMO-Deploy=bot

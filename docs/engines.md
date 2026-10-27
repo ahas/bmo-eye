@@ -71,7 +71,7 @@ Three things a look needs that the Lab-arena set does not give:
 |---|---|---|---|
 | `ffmpeg` | main-host | none | cutting a video into frames and its audio track |
 | `faster-whisper` `large-v3` int8 | n2, `~/eye/venv-whisper`, CPU | none | reading a video's speech, installed in stage 1 and reused |
-| `yt-dlp` | main-host, `~/.local/share/bmo-eye/venv` | none | fetching a YouTube link |
+| `yt-dlp` | main-host, `~/.local/share/bmo/data/eye/venv` | none | fetching a YouTube link |
 
 Speech is read on the node's CPU: 81 s for a 66 s clip and 537 s for an 11 min 32 s one, measured in stage
 1. It takes no card and no VRAM, so a video's speech never competes with the Lab-arena nodes.
@@ -87,7 +87,9 @@ turn, and reads the transcript back.
 | What | Where |
 |---|---|
 | the server | main-host, `127.0.0.1:7435`, `bmo-eye.service` |
-| its store | `~/.local/share/bmo-eye/`, SQLite and the uploads' bytes |
+| the release | `~/.local/share/bmo-eye/deploy`, the one path every caller uses |
+| the settings | `~/.local/share/bmo/data/eye/settings.toml`, linked into the release |
+| its store | `~/.local/share/bmo/data/eye/`, SQLite and the uploads' bytes |
 | the Lab-arena nodes | `127.0.0.1:18101`–`18104`, the loopback tunnels the Lab-arena deployment keeps |
 | the nodes' keys | `~/.local/share/bmo-lab-arena/keys/n3.key` … `n6.key` |
 | n2's CPU | through the jake hub's control API at `127.0.0.1:8791` |
@@ -96,6 +98,17 @@ turn, and reads the transcript back.
 
 The service needs no GPU, no VRAM and no card turn. A look is answered by whichever node answers first,
 and the eye service never stops, starts or yields anything on a node.
+
+**The unit** is `bmo-eye.service`, a user unit of main-host, marked `X-BMO-Deploy=bot` so every deployment
+restarts it and waits on its health. Its `ExecStart` runs `bmo-eye serve` from the release, and
+`bmo-eye health` — the same binary — is what the deployment's health command runs. `bmo eye` finds the
+binary through the link `~/.local/bin/bmo-eye`, which the deployment makes before the flip, so the noun is
+served from any line on the machine.
+
+**The deployment** is the repository's own (`testbed.toml`, `[deploy]`): the release at
+`~/.local/share/bmo-eye/deploy`, the settings linked from the data root, the unit restarted, the health
+waited on, and then the repository's tool placed with the tool host
+(`bmo pocket put .tool --placed --service bmo-eye`, `docs/plan.md` 「The tool」).
 
 ## The card
 

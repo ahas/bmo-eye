@@ -35,6 +35,16 @@ enum Step {
     #[arg(long)]
     settings: Option<PathBuf>,
   },
+  /// Answers 0 once the service answers ready: the deployment's health command.
+  Health {
+    #[arg(long)]
+    settings: Option<PathBuf>,
+  },
+  /// Answers one tool call of the tool host's, read from standard input (`docs/plan.md`, 「The tool」).
+  Tool {
+    #[arg(long)]
+    settings: Option<PathBuf>,
+  },
 }
 
 #[derive(Subcommand)]
@@ -153,6 +163,17 @@ async fn main() -> ExitCode {
         ExitCode::FAILURE
       }
     },
+    Step::Health { settings } => match health(settings).await {
+      Ok(()) => ExitCode::SUCCESS,
+      Err(e) => {
+        eprintln!("bmo-eye: {e}");
+        ExitCode::FAILURE
+      }
+    },
+    Step::Tool { settings } => {
+      tool(settings).await;
+      ExitCode::SUCCESS
+    }
     Step::Eye { step } => match command(step).await {
       Ok(()) => ExitCode::SUCCESS,
       Err(e) => {
@@ -368,4 +389,129 @@ async fn show(client: EyeClient, new: NewLook, wait: i64, json: bool) -> Result<
     return Err(look.error.unwrap_or_else(|| "the look failed".into()));
   }
   Ok(())
+}
+
+/// `bmo-eye health`: the deployment's health command, asking the service the settings name.
+async fn health(settings: Option<PathBuf>) -> Result<(), String> {
+  if let Some(path) = &settings {
+    // SAFETY: the process reads its settings before it asks anything.
+    unsafe { std::env::set_var("BMO_EYE_SETTINGS", path) };
+  }
+  let settings = Settings::load()?;
+  let token = read_token(&settings)?;
+  let client = EyeClient::new(format!("http://{}", settings.listen)).with_token(token);
+  let health = client.health().await?;
+  if health.ready {
+    println!("ready {} {}", health.version, settings.listen);
+    Ok(())
+  } else {
+    Err(health.reason.unwrap_or_else(|| "not ready".into()))
+  }
+}
+
+/// One call of the tool host's, answered as the tool host's protocol states: the call on standard input, an
+/// MCP tool result on standard output (`docs/plan.md`, 「The tool」).
+async fn tool(settings: Option<PathBuf>) {
+  use std::io::Read as _;
+  let mut raw = String::new();
+  if let Err(e) = std::io::stdin().read_to_string(&mut raw) {
+    return refuse(&format!("the call did not read: {e}"));
+  }
+  let call: serde_json::Value = match serde_json::from_str(&raw) {
+    Ok(v) => v,
+    Err(e) => return refuse(&format!("the call did not read as JSON: {e}")),
+  };
+  let kind = call.get("kind").and_then(|k| k.as_str()).unwrap_or_default();
+  if kind != "call" {
+    return refuse(&format!("this tool answers a call alone, not {kind}"));
+  }
+  let entry = call.get("entry").and_then(|e| e.as_str()).unwrap_or_default();
+  let Some(mode) = entry.strip_prefix("eye/").and_then(Mode::parse) else {
+    return refuse(&format!("{entry}: no such entry of this tool"));
+  };
+  let args = call.get("arguments").cloned().unwrap_or_else(|| serde_json::json!({}));
+  let Some(path) = args.get("path").and_then(|p| p.as_str()) else {
+    return refuse("the call names no path");
+  };
+  let default_question = match mode {
+    Mode::See => "이 그림을 보고 질문에 답하라.",
+    Mode::Read => "이 문서의 글자를 위에서 아래로 그대로 옮겨 적어라.",
+    Mode::Watch => "이 영상이 무엇을 보여 주고 무엇을 보도하는지 답하라.",
+  };
+  let question = args.get("question").and_then(|q| q.as_str()).unwrap_or(default_question).to_string();
+  let wait = args.get("wait").and_then(|w| w.as_i64()).unwrap_or(600).clamp(1, 3600);
+  let pages = args
+    .get("pages")
+    .and_then(|p| p.as_str())
+    .map(|p| p.split(',').filter_map(|w| w.trim().parse::<i64>().ok()).collect());
+  let fps = args.get("fps").and_then(|f| f.as_f64()).unwrap_or(1.0);
+  let max_frames = args.get("maxFrames").and_then(|f| f.as_i64()).unwrap_or(12);
+  let speech = args.get("speech").and_then(|s| s.as_bool()).unwrap_or(true);
+  if let Some(path) = &settings {
+    // SAFETY: the process reads its settings before it asks the service anything.
+    unsafe { std::env::set_var("BMO_EYE_SETTINGS", path) };
+  }
+  let settings = match Settings::load() {
+    Ok(s) => s,
+    Err(e) => return refuse(&e),
+  };
+  let token = match read_token(&settings) {
+    Ok(t) => t,
+    Err(e) => return refuse(&e),
+  };
+  let client = EyeClient::new(format!("http://{}", settings.listen)).with_token(token);
+  let new = NewLook {
+    mode,
+    question,
+    sources: vec![source_ref(path)],
+    options: Options {
+      format: "text".into(),
+      detail: None,
+      fps,
+      max_frames,
+      start_s: 0.0,
+      end_s: None,
+      speech,
+      pages,
+      language: "ko".into(),
+      tables: true,
+    },
+    labels: Default::default(),
+  };
+  let mut look = match client.create(&new, wait * 1000).await {
+    Ok(l) => l,
+    Err(e) => return refuse(&format!("the service: {e}")),
+  };
+  let started = std::time::Instant::now();
+  while (look.state == "queued" || look.state == "running") && started.elapsed().as_secs() < 3600 {
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    match client.look(look.id).await {
+      Ok(l) => look = l,
+      Err(e) => return refuse(&format!("the service: {e}")),
+    }
+  }
+  if look.state != "done" {
+    let why = look.error.clone().unwrap_or_else(|| look.state.clone());
+    return refuse(&format!("the look ended {}: {why}", look.state));
+  }
+  let text = match (&look.answer, &look.pages) {
+    (Some(a), _) => a.text.clone(),
+    (None, Some(pages)) => pages.iter().map(|p| p.text.clone()).collect::<Vec<_>>().join("\n\n"),
+    _ => String::new(),
+  };
+  let answer = serde_json::json!({
+    "content": [{"type": "text", "text": text}],
+    "isError": false,
+    "structuredContent": look,
+  });
+  println!("{answer}");
+}
+
+/// A refusal a model reads: the tool host's answer, not a crash (`docs/plan.md`).
+fn refuse(why: &str) {
+  let answer = serde_json::json!({
+    "content": [{"type": "text", "text": format!("bmo-eye: {why}")}],
+    "isError": true,
+  });
+  println!("{answer}");
 }

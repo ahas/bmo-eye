@@ -15,6 +15,8 @@ read the pictures. This document states what stands now and what is still to bui
 | the server | `crates/server`, the binary `bmo-eye`, with the store, the chain and the four backends |
 | the client | `crates/client`, the types and the HTTP client the command and the tests use |
 | the command | `bmo eye see`, `bmo eye read`, `bmo eye watch`, `bmo eye looks`, `bmo eye look`, `bmo eye modes` |
+| the unit | `bmo-eye.service` on main-host, deployed from this repository, its health `bmo-eye health` |
+| the tools | `eye/see`, `eye/read` and `eye/watch`, placed with the tool host by the deployment |
 | the tests | `tests/api.rs`: a stand-in Lab-arena node and the routes walked against it |
 
 The server holds no weights, no card and no VRAM: a look is answered by a Lab-arena instance, and the vision
@@ -22,14 +24,36 @@ unit's own cost is a request on the network and an ffmpeg process for a video.
 
 ## What is still to build
 
-1. **The tool the tool host places.** A `tool.toml` with one entry per mode (`eye/see`, `eye/read`,
-   `eye/watch`), registered by this repository's deployment with `bmo-pocket put --service bmo-eye`, so an
-   agent calls a look through the host rather than a shell.
-2. **The agency rule.** One line in the agency's role prompts and the tool session's brief: an agent looks
-   at an image or a video through bmo-eye first unless its instruction says otherwise.
-3. **The unit.** `bmo-eye.service` on main-host, its settings file, and the road the platform reaches it by.
-4. **The testbed.** The repository's `testbed.toml` gains the workspace, its checks and a suite that answers
-   one look per mode against the samples of `docs/modes.md`.
+1. **A suite that answers a look per mode.** `testbed.toml` runs the workspace's tests; a test that answers
+   one look per mode against the samples of `docs/modes.md` still wants writing, and it can only run where
+   the Lab-arena nodes are reachable.
+2. **A hard document, and the four nodes' picture quality against each other,** as 「What is still to
+   measure」 below says.
+
+## The tool
+
+`tool.toml` at the repository's root declares three entries, one per mode, and each is answered by the same
+binary's `tool` word: the call comes on standard input as the tool host's protocol states it, and the
+answer is the look as `eye/see`, `eye/read` and `eye/watch` carry it.
+
+| Entry | Takes | Answers |
+|---|---|---|
+| `eye/see` | `path`, `question`, `wait` | the look: the answer's text, the backend that answered and what it cost |
+| `eye/read` | `path`, `question`, `pages` | the look: the transcription page by page |
+| `eye/watch` | `path`, `question`, `fps`, `maxFrames`, `speech` | the look: the answer, its frames and its speech |
+
+The deployment places the binary, the manifest and the schemas with the tool host once the service answers
+(`bmo pocket put .tool --placed --service bmo-eye`), so the entries stand from the flip onward and an agent
+reaches them by name where its line shows them and with `bmo use eye/see` where it does not.
+
+## The chat line
+
+A picture that arrives in a room reaches the chat agent with the note that names the file, and the agent's
+manual tells it what to do with that note. That paragraph is where the picture is sent through bmo-eye: it
+names `bmo eye see <path> -q <question>` as the way to read the picture, keeps the program's own Read tool
+as the fallback for the day the command cannot be reached, and leaves the decision to answer to the same
+line as before. The change stands in the agency's `prompts/agents/chat/manual.md` and is live when the
+agency is deployed.
 
 ## The server
 
@@ -37,7 +61,7 @@ One binary, `bmo-eye`, a Rust workspace at this repository's root.
 
 - **Shape.** `crates/server` holds the routes, the store and the chain; `crates/client` the types and the
   HTTP client; the binary's first word is the noun `eye`, which is how `bmo` hands it a command.
-- **The store** is SQLite in `~/.local/share/bmo-eye/`: looks, uploads and the event table. An upload's
+- **The store** is SQLite in `~/.local/share/bmo/data/eye/`: looks, uploads and the event table. An upload's
   bytes stand in the same folder, named by its id and its sha256.
 - **The chain** is code, not configuration: each mode's chain is the list `docs/modes.md` states, and each
   backend answers one trait — whether it takes a look's sources, how it reads them, and what it answers. A

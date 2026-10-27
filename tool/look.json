@@ -1,0 +1,75 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "mode", "state"],
+  "properties": {
+    "id": { "type": "integer", "description": "The look's id." },
+    "mode": { "type": "string", "enum": ["see", "read", "watch"] },
+    "state": { "type": "string", "enum": ["queued", "running", "done", "failed", "stopped"] },
+    "question": { "type": "string" },
+    "backend": {
+      "type": ["object", "null"],
+      "description": "The backend that answered: the chain's rung, its node and its model.",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "enum": ["lab-arena", "openrouter", "gemini", "caller"] },
+        "node": { "type": ["string", "null"] },
+        "model": { "type": ["string", "null"] }
+      }
+    },
+    "answer": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["text", "format"],
+      "properties": {
+        "text": { "type": "string", "description": "The answer, whole, in the language the question was asked in." },
+        "format": { "type": "string", "enum": ["text", "markdown", "json"] }
+      }
+    },
+    "speech": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["text", "language", "model", "ms"],
+      "properties": {
+        "text": { "type": "string" },
+        "language": { "type": "string" },
+        "model": { "type": "string" },
+        "ms": { "type": "integer" }
+      }
+    },
+    "frames": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["count", "fps"],
+      "properties": {
+        "count": { "type": "integer" },
+        "fps": { "type": "number" },
+        "tokensPerFrame": { "type": ["integer", "null"] }
+      }
+    },
+    "pages": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["page", "text"],
+        "properties": { "page": { "type": "integer" }, "text": { "type": "string" } }
+      }
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "promptTokens": { "type": ["integer", "null"] },
+        "outputTokens": { "type": ["integer", "null"] },
+        "firstTokenMs": { "type": ["integer", "null"] },
+        "totalMs": { "type": ["integer", "null"] }
+      }
+    },
+    "error": { "type": ["string", "null"] },
+    "createdAt": { "type": "integer" },
+    "startedAt": { "type": ["integer", "null"] },
+    "endedAt": { "type": ["integer", "null"] }
+  }
+}

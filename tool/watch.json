@@ -1,0 +1,41 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["path", "question"],
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The video's path on this machine, an https address, or a YouTube link."
+    },
+    "question": {
+      "type": "string",
+      "description": "What to ask about the video, in the language the answer should come back in."
+    },
+    "fps": {
+      "type": "number",
+      "description": "Frames taken from each second of the video.",
+      "default": 1,
+      "minimum": 0.05,
+      "maximum": 4
+    },
+    "maxFrames": {
+      "type": "integer",
+      "description": "The most frames taken from one video; a picture costs the node about 300 tokens.",
+      "default": 12,
+      "minimum": 1,
+      "maximum": 1024
+    },
+    "speech": {
+      "type": "boolean",
+      "description": "Whether what is said in the video is read as well as what is shown.",
+      "default": true
+    },
+    "wait": {
+      "type": "integer",
+      "description": "How long to wait for the answer, in seconds.",
+      "default": 900,
+      "minimum": 1,
+      "maximum": 3600
+    }
+  }
+}

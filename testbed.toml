@@ -25,3 +25,46 @@ lane = "wide"
 [[check.step]]
 id = "fmt"
 command = "cargo fmt --all --check"
+
+[build]
+# The release's binary, built from the workspace's `eye-server` crate.
+binaries = ["bmo-eye"]
+
+# The service's own deploy tree, the shared data root its settings and store stand under, the unit a deployment
+# restarts and watches, and the health it waits on (docs/engines.md, 「Where the vision unit stands」).
+[deploy]
+root = "~/.local/share/bmo-eye"
+link = "deploy"
+data_root = "~/.local/share/bmo/data"
+env_links = [{ link = "settings.toml", target = "eye/settings.toml" }]
+units = ["deploy/*.service"]
+health = "~/.local/share/bmo-eye/deploy/bin/bmo-eye health --settings ~/.local/share/bmo-eye/deploy/settings.toml"
+health_wait_seconds = 120
+stay_up_seconds = 5
+
+# The noun on the path: a link to the deploy tree's own binary, so the next release's binary is what a shell
+# line runs and a pruned release leaves nothing dangling.
+[[deploy.step]]
+id = "link-command"
+phase = "before-flip"
+command = '''
+set -eu
+bmo_dir="$(dirname "$(command -v bmo)")"
+ln -sfn "$HOME/.local/share/bmo-eye/deploy/bin/bmo-eye" "$bmo_dir/bmo-eye"
+'''
+
+# The repository's tool placed with the tool host once the service answers: the release's binary, its manifest
+# and its schemas as one folder, registered as this service's own (docs/plan.md, 「The tool」).
+[[deploy.step]]
+id = "register-tools"
+phase = "after-health"
+command = '''
+set -eu
+rm -rf .tool
+mkdir -p .tool/tool .tool/docs
+cp bin/bmo-eye tool.toml .tool/
+cp tool/see.json tool/read.json tool/watch.json tool/look.json .tool/tool/
+cp docs/tool-see.md docs/tool-read.md docs/tool-watch.md .tool/docs/
+bmo pocket put .tool --placed --service bmo-eye --allow room.tools
+rm -rf .tool
+'''

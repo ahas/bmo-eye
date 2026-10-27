@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["path", "question"],
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The image's path on this machine, as a message's note names it, or an https address."
+    },
+    "question": {
+      "type": "string",
+      "description": "What to ask about the image, in the language the answer should come back in."
+    },
+    "wait": {
+      "type": "integer",
+      "description": "How long to wait for the answer, in seconds.",
+      "default": 600,
+      "minimum": 1,
+      "maximum": 3600
+    }
+  }
+}
