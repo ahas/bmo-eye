@@ -22,4 +22,6 @@ fit, and the plan. Archive documents and reports for the owner are written in Ko
 |---|---|
 | `docs/` | The API, the modes and their chains, the n2 install, and the stage 2 plan |
 | `scripts/` | The measurement harness the stage 1 numbers were taken with |
-| `eye.card.toml` | The service's declaration to the card master |
+
+At the root stand the service's card declaration `eye.card.toml`, the testbed's `testbed.toml` and
+`CLAUDE.md`.

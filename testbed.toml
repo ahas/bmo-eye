@@ -1,0 +1,10 @@
+# How bmo-testbed tests, checks, builds and deploys this repository, in the testbed's declaration format.
+
+testbed = 0
+name = "bmo-eye"
+
+[check]
+# The repository holds documents and a measurement harness, and no code a check compiles. The quick checks
+# that read a tree are the layout sweep; stage 2 adds the workspace, its checks and its tests
+# (docs/plan.md).
+quick = ["layout"]
