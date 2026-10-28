@@ -70,15 +70,81 @@ Three things a look needs that the Lab-arena set does not give:
 | What | Where | Card | Why there |
 |---|---|---|---|
 | `ffmpeg` | main-host | none | cutting a video into frames and its audio track |
-| `faster-whisper` `large-v3` int8 | n2, `~/eye/venv-whisper`, CPU | none | reading a video's speech, installed in stage 1 and reused |
+| `faster-whisper` `large-v3` int8 | n2, `~/eye/venv-whisper`, CPU, and 2.9 GiB of weights in the node's shared model cache | none | reading a video's speech, installed in stage 1 and reused |
 | `yt-dlp` | main-host, `~/.local/share/bmo/data/eye/venv` | none | fetching a YouTube link |
 
 Speech is read on the node's CPU: 81 s for a 66 s clip and 537 s for an 11 min 32 s one, measured in stage
-1. It takes no card and no VRAM, so a video's speech never competes with the Lab-arena nodes.
+1. It takes no card and no VRAM, so a video's speech never competes with the Lab-arena nodes. It does take the
+node's cores and RAM beside the two services that live there, so a long video is read at the speed the node
+has spare.
 
 n2 is reached from the eye service through the jake hub's control API, the only road to it. The service
 posts the audio in base64, runs the installed whisper on the node with `--service` nothing and no card
 turn, and reads the transcript back.
+
+## What n2 runs
+
+n2 is the workbench and a card machine of its own, an RTX 4070 of 12,282 MiB. The figures below are the
+node's and its driver's own, read on `node2.labuser.local` on 2026-10-28 at driver 595.58.03, the card at
+10,791 MiB in use and 1,491 MiB free while they were read. A size is what `du` on the node reports.
+
+### The services that take the card
+
+| Unit | What it serves | On disk | On the card now | Peak while serving |
+|---|---|---|---|---|
+| `hy-mt2-engine` | a translation engine: `llama.cpp` over `HY-MT2-7B-Q8_0`, a 32,768 token context, four slots, an 8-bit cache, every layer offloaded | 7.5 GiB, the model file 7.4 of it; the `llama.cpp` build it runs is counted under `~/kakia-llm` below | 10,140 MiB | 10,140 MiB, flat: the context is taken at start and a line does not move it |
+| `bmo-voice` | a voice server over `VoxCPM2` with one LoRA checkpoint at a time, `bmo-005-e-1000` now | 6.8 GiB, its environment 6.3 and the checkpoints with their references 0.45 | 218 MiB, its process's context | 7.1 GB, the voice server's own record of a line spoken on an RTX 4070, and 6,908 MiB on an RTX 3060 Ti; not measurable here, see below |
+
+The voice server keeps the model in page-locked host memory, 5.39 GiB of the node's RAM, and moves it onto
+the card only while a line is spoken; idle it holds its context alone. The base weights it loads are no
+longer on the node's disk: the directory its checkpoint names is gone from the shared model cache, so that
+5.39 GiB in RAM stands as the only copy and a restart of the unit would find nothing to load.
+
+The 1,491 MiB free is where a third service would have to fit, and it is below the 7.2 GiB a voice model
+load asks for before it starts. The translation engine holds the node's shared card lock for as long as it
+runs, so the arbiter answers a voice line with "the card's memory stayed taken" and the voice server, which
+will not stop another service to make room, answers the caller with a 503. A line spoken while the
+translation engine runs is therefore not measurable here: the peak in the table is the voice server's own
+record and not a figure taken on this node.
+
+### The services that take no card
+
+| Unit | What it is | On disk | On the card |
+|---|---|---|---|
+| `bmo-card` | the node's card arbiter, which opens the device and takes no memory of it | 1.1 MiB, and a 12 GiB record file under its data that nothing has written since 2026-10-06 | 0 MiB |
+| `hy-mt2-tunnel` | the reverse tunnel that stands the engine's port 8050 on the operations machine's loopback 18050 | nothing | none |
+| `jake-agent` | the hub's agent on the node, the road this unit reaches n2 by | 3.5 MiB | none |
+
+### The bundles on the disk that nothing runs
+
+| Path | What it is | On disk |
+|---|---|---|
+| `~/eye` | stage 1 of this unit, kept: 64 GiB of model files no unit on the node loads, an OCR environment, the whisper environment and its samples | 71 GiB |
+| `~/yue2` | song generation: its models, the LoRAs trained on them, the songs it rendered and four environments | 72 GiB |
+| `~/kakia-llm` | three quantisations of one `RVN` model, a remote cache and the `llama.cpp` build the translation engine runs | 47 GiB |
+| `~/workspace` | training projects of the node account, a crack detector among them kept twice, one trainer archived beside itself, and a plate reader | 54 GiB |
+| `~/research` | one training run's outputs | 50 GiB |
+| `~/.cache/huggingface` | the shared model cache: `large-v3` for this unit's speech, 2.9 GiB, and `large-v3-turbo` for the ear service, 1.6 GiB | 7.1 GiB |
+| `~/comfy` | a `ComfyUI` checkout and its environment, with no checkpoint under it | 9.2 GiB |
+| `~/bmo-laya` | the training project of the card's `laya` occupant | 5.9 GiB |
+| `~/bmo-voice-train` | the `VoxCPM` training checkout and its experiment outputs | 2.7 GiB |
+| `~/bmo-ear` | the ear service's environment, its unit gone and its weights in the cache above | 0.4 GiB |
+
+Stage 1 is the largest claim this unit makes on the node and nothing there reads it, so it is the first
+room to give back where the node wants some.
+
+### The rest of the machine
+
+Everything else on n2 is not an AI service: nginx, the garage store with its console container, mariadb,
+postgresql 14, rabbitmq, docker and containerd, the two `dl-` viewers, `matterport-thief` on port 8888 with
+33 GiB of scraped tours, and n6's home mounted at `~/repos/david`.
+
+| What | Size |
+|---|---|
+| `/` | 916 GiB, 571 in use, 299 free |
+| the node account's home | 460 GiB, of which 23 GiB of download caches and 12 GiB the arbiter's record file |
+| docker | about 13 GiB of images and 13 GiB of build cache |
+| `/mnt/data1` | a second disk of 2.8 TB, 1.8 TB of it reported in use, whose directory reads empty for the node account and is therefore counted nowhere above |
 
 ## Where the vision unit stands
 
