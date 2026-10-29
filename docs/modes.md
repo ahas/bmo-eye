@@ -6,9 +6,9 @@ and each mode has its own chain of backends. The request and answer shape is the
 
 | Mode | CLI | Reads | The engine it is answered by |
 |---|---|---|---|
-| `see` | `bmo eye see` | images: photos, screenshots, charts, several at once | a Lab-arena instance on n3 to n6 |
-| `read` | `bmo eye read` | documents: scans, PDFs, pages of text and tables | a Lab-arena instance on n3 to n6 |
-| `watch` | `bmo eye watch` | video: a file, a URL, a YouTube link; scenes, on-screen text, speech | a Lab-arena instance for the frames, n2's CPU for the speech |
+| `see` | `bmo see` | images: photos, screenshots, charts, several at once | a Lab-arena instance on n3 to n6 |
+| `read` | `bmo read` | documents: scans, PDFs, pages of text and tables | a Lab-arena instance on n3 to n6 |
+| `watch` | `bmo watch` | video: a file, a URL, a YouTube link; scenes, on-screen text, speech | a Lab-arena instance for the frames, n2's CPU for the speech |
 
 The engines are `docs/engines.md`. No mode has a model of its own: every mode reaches the Qwen3.8-Flash-Next
 set that bmo-lab-arena already runs, and the vision unit itself holds no weights and no card.

@@ -30,6 +30,12 @@ enum Step {
     #[command(subcommand)]
     step: Eye,
   },
+  /// An image, as `bmo see` hands it: the eye group's own first-class verb.
+  See(Put),
+  /// A document's text, as `bmo read` hands it.
+  Read(Put),
+  /// A video, as `bmo watch` hands it.
+  Watch(Watching),
   /// Runs the service.
   Serve {
     #[arg(long)]
@@ -117,6 +123,18 @@ struct Watching {
   json: bool,
 }
 
+// One of the vision unit's sub-verbs, answered as its own exit: the same verb the eye group's first-class
+// commands hand over (`bmo see`, `bmo read`, `bmo watch`).
+async fn hand(step: Eye) -> ExitCode {
+  match command(step).await {
+    Ok(()) => ExitCode::SUCCESS,
+    Err(e) => {
+      eprintln!("bmo-eye: {e}");
+      ExitCode::FAILURE
+    }
+  }
+}
+
 fn read_token(settings: &Settings) -> Result<String, String> {
   let path = expand(&settings.token_file);
   std::fs::read_to_string(&path)
@@ -153,7 +171,11 @@ async fn main() -> ExitCode {
   let cli = Cli::parse();
   match cli.step {
     Step::Nouns => {
-      println!("eye\t");
+      // The unit's own noun, and the eye group's three verbs as the platform's first-class commands
+      // (docs/plan.md, 「The noun」).
+      for noun in ["eye", "see", "read", "watch"] {
+        println!("{noun}\t");
+      }
       ExitCode::SUCCESS
     }
     Step::Serve { settings } => match serve(settings).await {
@@ -174,13 +196,10 @@ async fn main() -> ExitCode {
       tool(settings).await;
       ExitCode::SUCCESS
     }
-    Step::Eye { step } => match command(step).await {
-      Ok(()) => ExitCode::SUCCESS,
-      Err(e) => {
-        eprintln!("bmo-eye: {e}");
-        ExitCode::FAILURE
-      }
-    },
+    Step::See(put) => hand(Eye::See(put)).await,
+    Step::Read(put) => hand(Eye::Read(put)).await,
+    Step::Watch(watching) => hand(Eye::Watch(watching)).await,
+    Step::Eye { step } => hand(step).await,
   }
 }
 

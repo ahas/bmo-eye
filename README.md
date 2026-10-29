@@ -6,9 +6,9 @@ bmo-lab-arena already runs on n3 to n6.
 
 | Mode | CLI | What it reads |
 | --- | --- | --- |
-| watch | `bmo eye watch` | video: a file, a URL, a YouTube link; scenes, on-screen text, speech |
-| see | `bmo eye see` | images: photos, screenshots, charts, several at once |
-| read | `bmo eye read` | documents: scans, PDFs, pages of text and tables (OCR) |
+| watch | `bmo watch` | video: a file, a URL, a YouTube link; scenes, on-screen text, speech |
+| see | `bmo see` | images: photos, screenshots, charts, several at once |
+| read | `bmo read` | documents: scans, PDFs, pages of text and tables (OCR) |
 
 Each mode asks its chain in order and answers from the first backend that works: the Lab-arena instance on n3,
 then the three Coder nodes, then OpenRouter, then the caller's own model where it takes the input natively.

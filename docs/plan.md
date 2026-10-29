@@ -14,10 +14,10 @@ read the pictures. This document states what stands now and what is still to bui
 | the engines it looks through | `docs/engines.md`: the Qwen3.8-Flash-Next set on n3 to n6, the picture reader, and n2's CPU for speech |
 | the server | `crates/server`, the binary `bmo-eye`, with the store, the chain and the four backends |
 | the client | `crates/client`, the types and the HTTP client the command and the tests use |
-| the command | `bmo eye see`, `bmo eye read`, `bmo eye watch`, `bmo eye looks`, `bmo eye look`, `bmo eye modes` |
+| the command | `bmo see`, `bmo read`, `bmo watch`, and `bmo eye looks`, `bmo eye look`, `bmo eye modes` |
 | the unit | `bmo-eye.service` on main-host, enabled, its health `bmo-eye health` |
 | the tools | `eye/see`, `eye/read` and `eye/watch`, placed with the tool host by the deployment |
-| the chat line | the chat agent's image note reads the picture through `bmo eye see` (agency `prompts/agents/chat/manual.md`) |
+| the chat line | the chat agent's image note reads the picture through `bmo see` (agency `prompts/agents/chat/manual.md`) |
 | the tests | `tests/api.rs`: a stand-in Lab-arena node and the routes walked against it |
 
 The server holds no weights, no card and no VRAM: a look is answered by a Lab-arena instance, and the vision
@@ -51,7 +51,7 @@ reaches them by name where its line shows them and with `bmo use eye/see` where 
 
 A picture that arrives in a room reaches the chat agent with the note that names the file, and the agent's
 manual tells it what to do with that note. That paragraph is where the picture is sent through bmo-eye: it
-names `bmo eye see <path> -q <question>` as the way to read the picture, keeps the program's own Read tool
+names `bmo see <path> -q <question>` as the way to read the picture, keeps the program's own Read tool
 as the fallback for the day the command cannot be reached, and leaves the decision to answer to the same
 line as before. The change stands in the agency's `prompts/agents/chat/manual.md` and is live when the
 agency is deployed.
@@ -85,14 +85,17 @@ in 2.45 s and the photo of a receipt in 2.23 s, both by `lab-arena` on n3 with `
 
 ## The command
 
-`bmo eye` is one noun in the platform's CLI, handed to `bmo-eye` the way every other noun is: the binary
-declares the noun `eye` when asked `nouns`, and the platform finds it on the path.
+The vision unit is the platform's eye group, and its three verbs are first-class commands: the binary declares
+`eye`, `see`, `read` and `watch` when asked `nouns`, so the platform hands `bmo see`, `bmo read` and `bmo watch`
+straight to it. The same verbs stand under the unit's own noun as well, and `bmo eye` carries the looks and the
+modes beside them.
 
 | Command | Does |
 |---|---|
-| `bmo eye see <source>… -q <question>` | creates a `see` look and prints its answer |
-| `bmo eye read <source>… [-q <question>]` | creates a `read` look and prints the transcription |
-| `bmo eye watch <source> -q <question>` | creates a `watch` look and prints its answer |
+| `bmo see <source>… -q <question>` | creates a `see` look and prints its answer |
+| `bmo read <source>… [-q <question>]` | creates a `read` look and prints the transcription |
+| `bmo watch <source> -q <question>` | creates a `watch` look and prints its answer |
+| `bmo eye see` / `bmo eye read` / `bmo eye watch` | the same three verbs under the unit's own noun |
 | `bmo eye looks` | lists the looks, newest first |
 | `bmo eye look <lookId>` | prints one look |
 | `bmo eye modes` | prints the chains and what stands behind each rung |
