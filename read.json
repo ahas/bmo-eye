@@ -14,13 +14,6 @@
     "pages": {
       "type": "string",
       "description": "A PDF's pages to read, comma-separated, as in 1,3,5. Left out, every page."
-    },
-    "wait": {
-      "type": "integer",
-      "description": "How long to wait for the answer, in seconds.",
-      "default": 600,
-      "minimum": 1,
-      "maximum": 3600
     }
   }
 }

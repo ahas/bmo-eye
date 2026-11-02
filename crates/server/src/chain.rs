@@ -284,11 +284,8 @@ async fn answer(
     "messages": message(material),
   });
   let started = std::time::Instant::now();
-  let client = reqwest::Client::builder()
-    .timeout(std::time::Duration::from_secs(600))
-    .build()
-    .map_err(|e| e.to_string())?;
-  let resp = client
+  // The node is waited for however long it reads: the call ends with its answer or its connection.
+  let resp = reqwest::Client::new()
     .post(&url)
     .bearer_auth(key)
     .json(&body)
@@ -340,20 +337,19 @@ pub async fn modes(settings: &Settings) -> Vec<ModeInfo> {
     let mut rungs = Vec::new();
     for rung in &chain.rungs {
       let (state, reason) = match rung {
-        Rung::Lab-arena { address, .. } => match reqwest::Client::new()
-          .get(format!("http://{address}/health"))
-          .timeout(std::time::Duration::from_secs(3))
-          .send()
-          .await
-        {
-          Ok(r) if r.status().is_success() => match r.json::<serde_json::Value>().await {
-            Ok(v) if v.get("images").and_then(|i| i.as_bool()) == Some(true) => ("ready".to_string(), None),
-            Ok(_) => ("down".to_string(), Some("the node reads no pictures".to_string())),
+        Rung::Lab-arena { address, .. } => {
+          match reqwest::Client::new().get(format!("http://{address}/health")).send().await {
+            Ok(r) if r.status().is_success() => match r.json::<serde_json::Value>().await {
+              Ok(v) if v.get("images").and_then(|i| i.as_bool()) == Some(true) => {
+                ("ready".to_string(), None)
+              }
+              Ok(_) => ("down".to_string(), Some("the node reads no pictures".to_string())),
+              Err(e) => ("down".to_string(), Some(e.to_string())),
+            },
+            Ok(r) => ("down".to_string(), Some(format!("the node answered {}", r.status()))),
             Err(e) => ("down".to_string(), Some(e.to_string())),
-          },
-          Ok(r) => ("down".to_string(), Some(format!("the node answered {}", r.status()))),
-          Err(e) => ("down".to_string(), Some(e.to_string())),
-        },
+          }
+        }
         Rung::OpenRouter { key_file, .. } => {
           let path = expand(key_file);
           match std::fs::read_to_string(&path).map(|k| k.trim().to_string()) {
@@ -399,7 +395,6 @@ async fn key_limit(key: &str) -> Result<Option<f64>, String> {
   let resp = reqwest::Client::new()
     .get("https://openrouter.ai/api/v1/key")
     .bearer_auth(key)
-    .timeout(std::time::Duration::from_secs(5))
     .send()
     .await
     .map_err(|e| e.to_string())?;

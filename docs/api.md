@@ -45,7 +45,8 @@ look is a member of the service and keeps its record after it ends.
 | `DELETE /looks/{lookId}` | | 204; a running look is stopped and its backend's answer is abandoned |
 
 - **`waitMs`** is how long the route holds the answer open: zero where absent, at most `600000`. The look
-  is created either way; a caller that waits past its time reads the look again.
+  is created either way and runs to its end whatever the hold; a caller that wants the end reads the look
+  again until it has ended.
 - **`limit`** is 50 where absent and 200 at most.
 - **`DELETE`** on a look that already ended answers 204 and changes nothing. The record stays; the look's
   state does not move.
@@ -171,8 +172,9 @@ is every backend that stood before the answer, in the order they were asked:
 - **`skipped`** is a backend the look's sources or options cannot reach — an image in a chain step that
   takes video, a hosted backend with no key configured, a `handed-off` caller that takes no such input.
   Its `reason` names the rule.
-- **`failed`** is a backend that was tried and did not answer: the node did not answer inside the look's
-  wait, the model refused the input, the hosted call failed. `reason` is the failure as a sentence, and the
+- **`failed`** is a backend that was tried and did not answer: the node refused or dropped the
+  connection or answered an error, the model refused the input, the hosted call failed. A backend that is
+  still reading is waited for, however long it takes. `reason` is the failure as a sentence, and the
   next backend is asked.
 - **`answered`** ends the chain; `backend` names that entry.
 - **`handed-off`** ends the chain with no answer of the server's: the last rung of a chain whose caller

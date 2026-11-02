@@ -29,13 +29,6 @@
       "type": "boolean",
       "description": "Whether what is said in the video is read as well as what is shown.",
       "default": true
-    },
-    "wait": {
-      "type": "integer",
-      "description": "How long to wait for the answer, in seconds.",
-      "default": 900,
-      "minimum": 1,
-      "maximum": 3600
     }
   }
 }

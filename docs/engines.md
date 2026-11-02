@@ -55,8 +55,9 @@ Measured on n3 on 2026-10-27, through the node's own `/v1/chat/completions`, one
 | twelve frames of a minute of video, answered | 3,649 | 6.6 s of the model, 62 s of the look |
 
 The spread is the node's, not the caller's: the same question against the same picture answered in 6 s and
-in 63 s, because a Lab-arena instance shares its card with the borrowing engine and yields it. A caller that
-needs a bound sets `waitMs` and reads the look again.
+in 63 s, because a Lab-arena instance shares its card with the borrowing engine and yields it. A look waits for
+its node's answer however long that takes; a caller holds the route open with `waitMs` and reads the look
+again until it ends.
 
 **What the vision unit costs the text path:** nothing of the card, and about 1.1 GiB of the node's RAM for
 the reader once it has read a picture. A text request sent while four pages were being read answered at the

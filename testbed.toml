@@ -39,8 +39,6 @@ data_root = "~/.local/share/bmo/data"
 env_links = [{ link = "settings.toml", target = "eye/settings.toml" }]
 units = ["deploy/*.service"]
 health = "~/.local/share/bmo-eye/deploy/bin/bmo-eye health --settings ~/.local/share/bmo-eye/deploy/settings.toml"
-health_wait_seconds = 120
-stay_up_seconds = 5
 
 # The noun on the path: a link to the deploy tree's own binary, so the next release's binary is what a shell
 # line runs and a pruned release leaves nothing dangling.

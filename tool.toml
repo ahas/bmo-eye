@@ -1,6 +1,7 @@
 # bmo-eye as a tool of the tool host (docs/plan.md, 「The tool」): one entry a mode, each answered by the
 # release's binary's `tool` word with the look the service made. The deployment places the binary, this
-# manifest and the schemas in one folder and registers it as this service's own.
+# manifest and the schemas in one folder and registers it as this service's own. Every entry is unbounded: a call
+# waits for its look to end, however long the node takes to answer.
 
 [tool]
 name = "eye"
@@ -21,7 +22,7 @@ input = "see.json"
 output = "look.json"
 hints = { read_only = true, open_world = true }
 capabilities = ["room.tools"]
-timeout = 900
+unbounded = true
 
 [[entry]]
 namespace = "eye"
@@ -33,7 +34,7 @@ input = "read.json"
 output = "look.json"
 hints = { read_only = true, open_world = true }
 capabilities = ["room.tools"]
-timeout = 900
+unbounded = true
 
 [[entry]]
 namespace = "eye"
@@ -45,4 +46,4 @@ input = "watch.json"
 output = "look.json"
 hints = { read_only = true, open_world = true }
 capabilities = ["room.tools"]
-timeout = 1800
+unbounded = true

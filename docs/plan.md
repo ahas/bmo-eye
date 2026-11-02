@@ -39,13 +39,14 @@ answer is the look as `eye/see`, `eye/read` and `eye/watch` carry it.
 
 | Entry | Takes | Answers |
 |---|---|---|
-| `eye/see` | `path`, `question`, `wait` | the look: the answer's text, the backend that answered and what it cost |
+| `eye/see` | `path`, `question` | the look: the answer's text, the backend that answered and what it cost |
 | `eye/read` | `path`, `question`, `pages` | the look: the transcription page by page |
 | `eye/watch` | `path`, `question`, `fps`, `maxFrames`, `speech` | the look: the answer, its frames and its speech |
 
 The deployment places the binary, the manifest and the schemas with the tool host once the service answers
 (`bmo pocket put .tool --placed --service bmo-eye`), so the entries stand from the flip onward and an agent
-reaches them by name where its line shows them and with `bmo use eye/see` where it does not.
+reaches them by name where its line shows them and with `bmo use eye/see` where it does not. Each entry is
+unbounded to the tool host: a call waits for its look to end, however long the node takes to answer.
 
 ## The chat line
 
@@ -100,9 +101,10 @@ modes beside them.
 | `bmo eye look <lookId>` | prints one look |
 | `bmo eye modes` | prints the chains and what stands behind each rung |
 
-`--json` prints the member or the page exactly as the API answers it; `--format`, `--wait`, `--fps`,
-`--max-frames`, `--pages` and `--language` carry the mode's options; a look that ended `failed` exits
-non-zero with the reason.
+`--json` prints the member or the page exactly as the API answers it; `--format`, `--fps`, `--max-frames`,
+`--pages` and `--language` carry the mode's options. A verb waits for its look to end and prints it then;
+`--wait 0` prints the look as it stands at once instead. A look that ended `failed` exits non-zero with the
+reason.
 
 ## What this build must not cost
 

@@ -31,19 +31,18 @@ def rss_mib(pid: int) -> int:
     return 0
 
 
-def wait_ready(port: int, proc: subprocess.Popen, log: str, limit_s: float) -> float:
+def wait_ready(port: int, proc: subprocess.Popen, log: str) -> float:
     t0 = time.time()
-    while time.time() - t0 < limit_s:
+    while True:
         if proc.poll() is not None:
             raise SystemExit(f"server exited early:\n{open(log).read()[-3000:]}")
         try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=1) as r:
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/health") as r:
                 if json.load(r).get("status") == "ok":
                     return time.time() - t0
         except Exception:
             pass
         time.sleep(0.3)
-    raise SystemExit("server did not become ready")
 
 
 def ask(port: int, model: str, prompt: str, images: list[str], max_tokens: int) -> dict:
@@ -59,7 +58,7 @@ def ask(port: int, model: str, prompt: str, images: list[str], max_tokens: int) 
     req = urllib.request.Request(f"http://127.0.0.1:{port}/v1/chat/completions", data=body,
                                  headers={"content-type": "application/json"})
     t0 = time.time(); timings = {}; text = ""
-    with urllib.request.urlopen(req, timeout=7200) as r:
+    with urllib.request.urlopen(req) as r:
         ev = json.load(r)
     timings = ev.get("timings") or {}
     msg = (ev.get("choices") or [{}])[0].get("message", {}) or {}
@@ -105,7 +104,7 @@ def main() -> None:
     slog = open(log, "wb")
     proc = subprocess.Popen(cmd, stdout=slog, stderr=slog)
     try:
-        load_s = wait_ready(port, proc, log, 1800)
+        load_s = wait_ready(port, proc, log)
         gpu_after = gpu_used()
         time.sleep(1.5)
         gpu_settled = gpu_used()
@@ -141,10 +140,7 @@ def main() -> None:
         print("wrote", path)
     finally:
         proc.send_signal(signal.SIGTERM)
-        try:
-            proc.wait(timeout=30)
-        except subprocess.TimeoutExpired:
-            proc.kill()
+        proc.wait()
         time.sleep(2)
         print("gpU after stop:", gpu_used())
 

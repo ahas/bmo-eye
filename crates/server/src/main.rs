@@ -368,14 +368,11 @@ async fn put(client: EyeClient, mode: Mode, p: Put, default_question: &str) -> R
 
 async fn show(client: EyeClient, new: NewLook, wait: i64, json: bool) -> Result<(), String> {
   let mut look = client.create(&new, wait * 1000).await?;
-  if (look.state == "queued" || look.state == "running") && wait > 0 {
-    let started = std::time::Instant::now();
-    while started.elapsed().as_secs() < 3600 {
+  // Any wait but none waits for the look's end, however long its node takes.
+  if wait > 0 {
+    while look.state == "queued" || look.state == "running" {
       tokio::time::sleep(std::time::Duration::from_millis(500)).await;
       look = client.look(look.id).await?;
-      if look.state != "queued" && look.state != "running" {
-        break;
-      }
     }
   }
   if json {
@@ -428,6 +425,10 @@ async fn health(settings: Option<PathBuf>) -> Result<(), String> {
   }
 }
 
+/// The longest the create route holds a look's answer open (`docs/api.md`, 「Limits」); the tool reads the look
+/// again past it.
+const HOLD_MS: i64 = 600_000;
+
 /// One call of the tool host's, answered as the tool host's protocol states: the call on standard input, an
 /// MCP tool result on standard output (`docs/plan.md`, 「The tool」).
 async fn tool(settings: Option<PathBuf>) {
@@ -458,7 +459,6 @@ async fn tool(settings: Option<PathBuf>) {
     Mode::Watch => "이 영상이 무엇을 보여 주고 무엇을 보도하는지 답하라.",
   };
   let question = args.get("question").and_then(|q| q.as_str()).unwrap_or(default_question).to_string();
-  let wait = args.get("wait").and_then(|w| w.as_i64()).unwrap_or(600).clamp(1, 3600);
   let pages = args
     .get("pages")
     .and_then(|p| p.as_str())
@@ -497,12 +497,12 @@ async fn tool(settings: Option<PathBuf>) {
     },
     labels: Default::default(),
   };
-  let mut look = match client.create(&new, wait * 1000).await {
+  // The entry is unbounded: the call waits for the look's end, holding the route open as long as it holds.
+  let mut look = match client.create(&new, HOLD_MS).await {
     Ok(l) => l,
     Err(e) => return refuse(&format!("the service: {e}")),
   };
-  let started = std::time::Instant::now();
-  while (look.state == "queued" || look.state == "running") && started.elapsed().as_secs() < 3600 {
+  while look.state == "queued" || look.state == "running" {
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     match client.look(look.id).await {
       Ok(l) => look = l,
