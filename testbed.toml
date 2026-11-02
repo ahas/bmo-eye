@@ -9,7 +9,7 @@ name = "bmo-eye"
 languages = ["cargo"]
 
 [check]
-quick = ["layout", "dependencies", "korean"]
+quick = ["layout", "dependencies", "korean", "cargo-profile"]
 korean_ledger = "korean-ledger.json"
 
 [[check.step]]

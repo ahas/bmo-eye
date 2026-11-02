@@ -18,7 +18,7 @@ read the pictures. This document states what stands now and what is still to bui
 | the unit | `bmo-eye.service` on main-host, enabled, its health `bmo-eye health` |
 | the tools | `eye/see`, `eye/read` and `eye/watch`, placed with the tool host by the deployment |
 | the chat line | the chat agent's image note reads the picture through `bmo see` (agency `prompts/agents/chat/manual.md`) |
-| the tests | `tests/api.rs`: a stand-in Lab-arena node and the routes walked against it |
+| the tests | `tests/api.rs`, a module of the one test target `tests/main.rs`: a stand-in Lab-arena node and the routes walked against it |
 
 The server holds no weights, no card and no VRAM: a look is answered by a Lab-arena instance, and the vision
 unit's own cost is a request on the network and an ffmpeg process for a video.
