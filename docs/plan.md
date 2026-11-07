@@ -30,6 +30,10 @@ unit's own cost is a request on the network and an ffmpeg process for a video.
    the Lab-arena nodes are reachable.
 2. **A hard document, and the four nodes' picture quality against each other,** as 「What is still to
    measure」 below says.
+3. **A drawing unit and its reference pipeline.** `docs/paint-references.md` is the design: a subject's
+   record in the brain and the archive, a research run that fills it, bmo-eye's check of the candidate
+   pictures, and IP-Adapter injection on n2's ComfyUI. It builds nothing in this repository; the unit that
+   draws is new, and bmo-eye serves it the check through the routes `docs/api.md` already states.
 
 ## The tool
 

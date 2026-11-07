@@ -16,14 +16,15 @@ A video's speech is read on n2's CPU and the frames on a Lab-arena node; the vis
 Every agent on the platform looks at an image or a video through bmo-eye first unless told otherwise.
 
 `docs/` holds the canonical statements: the API, the modes and their chains, the engines it looks through,
-and the plan. Archive documents and reports for the owner are written in Korean; `docs/` stays in English.
+the plan, and the design for a drawing request's reference pipeline. Archive documents and reports for the
+owner are written in Korean; `docs/` stays in English.
 
 ## Layout
 
 | Folder | Holds |
 |---|---|
 | `crates/` | The Rust workspace: `client` (the types and the HTTP client) and `server` (the routes, the store, the chain and the `bmo-eye` binary) |
-| `docs/` | The API, the modes and their chains, the engines, and the plan |
+| `docs/` | The API, the modes and their chains, the engines, the plan, and the drawing-reference design |
 | `scripts/` | The measurement harness stage 1's numbers were taken with |
 | `src/` | The repository's own package, which holds no code |
 | `tests/` | The tests that walk the routes against a stand-in Lab-arena node |
