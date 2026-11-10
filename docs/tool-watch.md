@@ -1,7 +1,7 @@
 # The `eye/watch` entry
 
-Look at a video and answer a question about it, with what is said in it: a file on this machine, an https
-address, or a YouTube link.
+Look at a video and answer a question about it, with what is said in it: a file on this machine, or an
+https address of a video file or of a page that holds one, YouTube, Instagram reels and the like.
 
 ```
 bmo use eye/watch --arg path=https://www.youtube.com/watch?v=… --arg question="무엇을 보도하는가?"

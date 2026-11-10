@@ -6,7 +6,7 @@ bmo-lab-arena already runs on n3 to n6.
 
 | Mode | CLI | What it reads |
 | --- | --- | --- |
-| watch | `bmo watch` | video: a file, a URL, a YouTube link; scenes, on-screen text, speech |
+| watch | `bmo watch` | video: a file, a video or video-page URL, YouTube included; scenes, on-screen text, speech |
 | see | `bmo see` | images: photos, screenshots, charts, several at once |
 | read | `bmo read` | documents: scans, PDFs, pages of text and tables (OCR) |
 

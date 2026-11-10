@@ -77,11 +77,57 @@ pub fn is_youtube(url: &str) -> bool {
   url.contains("youtube.com/watch") || url.contains("youtu.be/") || url.contains("youtube.com/shorts")
 }
 
+/// The page hosts that hold a video behind a login wall or a script: the address itself is never media,
+/// so `yt-dlp`'s extractor for the host is what reaches the file.
+const VIDEO_PAGE_HOSTS: [&str; 7] = [
+  "instagram.com",
+  "tiktok.com",
+  "x.com",
+  "twitter.com",
+  "facebook.com",
+  "vimeo.com",
+  "threads.net",
+];
+
+/// Whether an address is a video page on one of the known hosts, at the host or a subdomain of it.
+pub fn is_video_page(url: &str) -> bool {
+  let Ok(parsed) = url::Url::parse(url) else { return false };
+  let Some(host) = parsed.host_str().map(|h| h.to_ascii_lowercase()) else {
+    return false;
+  };
+  VIDEO_PAGE_HOSTS.iter().any(|h| host == *h || host.ends_with(&format!(".{h}")))
+}
+
+/// Whether a media type is one a look can read.
+pub fn is_readable_media(media: &str) -> bool {
+  media.starts_with("image/")
+    || media.starts_with("video/")
+    || media.starts_with("audio/")
+    || media == "application/pdf"
+}
+
+/// The media type an address declares: its content type, and where that says nothing readable
+/// (`application/octet-stream` or nothing at all) the type its extension carries.
+pub fn declared_media(header: Option<&str>, url: &str) -> String {
+  let declared = header
+    .map(|v| v.split(';').next().unwrap_or(v).trim())
+    .filter(|v| !v.is_empty() && *v != "application/octet-stream");
+  declared
+    .map(str::to_string)
+    .or_else(|| media_type_of(url).map(str::to_string))
+    .unwrap_or_else(|| "application/octet-stream".into())
+}
+
 /// A YouTube link, fetched by yt-dlp into the work folder: the video at 720p at most, with its audio.
 pub async fn youtube(settings: &Settings, url: &str) -> Result<(Vec<u8>, PathBuf), String> {
+  pull_video(settings, url, &format!("yt-{}", std::process::id())).await
+}
+
+/// Pull a video into the work folder with the configured yt-dlp: at 720p at most, with its audio, merged
+/// into an mp4 named after the stem.
+async fn pull_video(settings: &Settings, url: &str, stem: &str) -> Result<(Vec<u8>, PathBuf), String> {
   let dir = expand(&settings.media.work_dir);
   tokio::fs::create_dir_all(&dir).await.map_err(|e| e.to_string())?;
-  let stem = format!("yt-{}", std::process::id());
   let target = dir.join(format!("{stem}.mp4"));
   let out = tokio::process::Command::new(expand(&settings.media.ytdlp))
     .arg("--no-warnings")
@@ -100,6 +146,18 @@ pub async fn youtube(settings: &Settings, url: &str) -> Result<(Vec<u8>, PathBuf
   }
   let bytes = tokio::fs::read(&target).await.map_err(|e| format!("{}: {e}", target.display()))?;
   Ok((bytes, target))
+}
+
+/// The file a video page holds, pulled by yt-dlp into the work folder under a name no other source of
+/// the same process takes.
+async fn video_page(settings: &Settings, url: &str) -> Result<(Vec<u8>, String, Option<PathBuf>), String> {
+  let nanos = std::time::SystemTime::now()
+    .duration_since(std::time::UNIX_EPOCH)
+    .map(|d| d.as_nanos())
+    .unwrap_or(0);
+  let stem = format!("video-{}-{nanos}", std::process::id());
+  let (bytes, path) = pull_video(settings, url, &stem).await.map_err(|e| format!("{url}: {e}"))?;
+  Ok((bytes, "video/mp4".into(), Some(path)))
 }
 
 /// The source's bytes and type, read where the source stands.
@@ -136,20 +194,32 @@ pub async fn read_source(
         let (bytes, path) = youtube(settings, &url).await?;
         return Ok((bytes, "video/mp4".into(), Some(path)));
       }
+      if is_video_page(&url) {
+        return video_page(settings, &url).await;
+      }
       let resp = reqwest::get(&url).await.map_err(|e| format!("{url}: {e}"))?;
       let status = resp.status();
       if !status.is_success() {
         return Err(format!("{url}: {status}"));
       }
-      let media = resp
+      let header = resp
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.split(';').next().unwrap_or(s).to_string())
-        .or_else(|| media_type_of(&url).map(|s| s.to_string()))
-        .unwrap_or_else(|| "application/octet-stream".into());
+        .map(str::to_string);
+      let media = declared_media(header.as_deref(), &url);
       let bytes = resp.bytes().await.map_err(|e| format!("{url}: {e}"))?.to_vec();
-      Ok((bytes, media, None))
+      if is_readable_media(&media) {
+        return Ok((bytes, media, None));
+      }
+      // The address answered something a look cannot read, usually an HTML page: it may still hold a
+      // video that an yt-dlp extractor knows.
+      match video_page(settings, &url).await {
+        Ok(resolved) => Ok(resolved),
+        // Bytes the server labelled with no type at all may be media ffmpeg reads; they pass as they are.
+        Err(_) if media == "application/octet-stream" => Ok((bytes, media, None)),
+        Err(e) => Err(format!("{url}: {media} is not a media the look can read ({e})")),
+      }
     }
     other => Err(format!("{other}: unknown source kind")),
   }

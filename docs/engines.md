@@ -72,7 +72,7 @@ Three things a look needs that the Lab-arena set does not give:
 |---|---|---|---|
 | `ffmpeg` | main-host | none | cutting a video into frames and its audio track |
 | `faster-whisper` `large-v3` int8 | n2, `~/eye/venv-whisper`, CPU, and 2.9 GiB of weights in the node's shared model cache | none | reading a video's speech, installed in stage 1 and reused |
-| `yt-dlp` | main-host, `~/.local/share/bmo/data/eye/venv` | none | fetching a YouTube link |
+| `yt-dlp` | main-host, `~/.local/share/bmo/data/eye/venv` | none | fetching a YouTube link or a video page's file |
 
 Speech is read on the node's CPU: 81 s for a 66 s clip and 537 s for an 11 min 32 s one, measured in stage
 1. It takes no card and no VRAM, so a video's speech never competes with the Lab-arena nodes. It does take the

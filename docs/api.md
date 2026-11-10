@@ -66,11 +66,12 @@ look is a member of the service and keeps its record after it ends.
 | `kind` | Fields | For |
 |---|---|---|
 | `upload` | `uploadId` | bytes the caller sent to `POST /uploads` |
-| `url` | `url` | an `https` address the server fetches, or a YouTube link it downloads |
+| `url` | `url` | an `https` address the server fetches, or downloads with `yt-dlp` where it holds a video page |
 | `path` | `path` | an absolute path on the server's node, under the source root the settings name |
 
 `see` and `read` take `upload`, `url` and `path`. `watch` takes `url` and `path`, and an `upload` only
-where its bytes are a video file; a YouTube link is a `url` and is downloaded on the node.
+where its bytes are a video file; a YouTube link and any other video page address are `url` sources,
+downloaded on the node with `yt-dlp` (`docs/modes.md`, 「watch: video」).
 
 **A look:**
 
@@ -134,7 +135,7 @@ upload for as long as a look names it, and removes it a day after its last look 
 | Mode | Reads | Sources | The mode's options |
 |---|---|---|---|
 | `see` | images: a photo, a screenshot, a chart, several at once | 1–16 | `format`, `detail` |
-| `watch` | video: a file, a URL, a YouTube link; scenes, on-screen text, speech | 1 | `format`, `fps`, `maxFrames`, `startS`, `endS`, `speech` |
+| `watch` | video: a file, a video or video-page URL, YouTube included; scenes, on-screen text, speech | 1 | `format`, `fps`, `maxFrames`, `startS`, `endS`, `speech` |
 | `read` | documents: a scan, a PDF, a table image | 1–16 | `format`, `pages`, `language`, `tables` |
 
 | Option | Takes | Where unset |
@@ -221,7 +222,7 @@ is the backend's own when the backend hears audio (Gemini), and n2's CPU speech 
 |---|---|
 | An upload | 20 MiB, or 2 GiB where the mode is `watch` |
 | Sources in one look | 16 for `see` and `read`, 1 for `watch` |
-| A YouTube link | 2 hours, 1080p at most |
+| A link downloaded with `yt-dlp` | 2 hours, 1080p at most |
 | `waitMs` | 600,000 |
 | Frames in one `watch` look | 12 where none is asked, 1024 at most |
 | One look's pictures | 16, and each is about 300 tokens of the node's context |

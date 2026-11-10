@@ -8,7 +8,7 @@ and each mode has its own chain of backends. The request and answer shape is the
 |---|---|---|---|
 | `see` | `bmo see` | images: photos, screenshots, charts, several at once | a Lab-arena instance on n3 to n6 |
 | `read` | `bmo read` | documents: scans, PDFs, pages of text and tables | a Lab-arena instance on n3 to n6 |
-| `watch` | `bmo watch` | video: a file, a URL, a YouTube link; scenes, on-screen text, speech | a Lab-arena instance for the frames, n2's CPU for the speech |
+| `watch` | `bmo watch` | video: a file, a video or video-page URL, YouTube included; scenes, on-screen text, speech | a Lab-arena instance for the frames, n2's CPU for the speech |
 
 The engines are `docs/engines.md`. No mode has a model of its own: every mode reaches the Qwen3.8-Flash-Next
 set that bmo-lab-arena already runs, and the vision unit itself holds no weights and no card.
@@ -90,7 +90,16 @@ n2's CPU and comes back as a transcript; the answer is written from both.
 |---|---|
 | a YouTube link | `yt-dlp` on the service's machine downloads it at 720p at most, then it is read as a file |
 | an `https` URL to a video file | fetched by the service itself, then read as a file |
+| an `https` URL to a video page | downloaded to a file by the same `yt-dlp`, then read as a file |
 | an uploaded or local file | read where it stands |
+
+- **An address is fetched directly when it serves a media type the look can read,** the content type or
+  the URL's extension saying video, audio, image or PDF.
+- **A page address is pulled with `yt-dlp` instead:** the page of a host known to hold a video
+  (instagram.com, tiktok.com, x.com, twitter.com, facebook.com, vimeo.com, threads.net), and any other
+  address whose bytes come back as something a look cannot read, the HTML page of a login wall being
+  the common one. The extractor decides what the address holds; an address it cannot resolve fails the
+  look with its reason.
 
 **Frames.** `fps` frames are taken from each second, from `startS` to `endS`, up to `maxFrames`; where
 `fps` would take more than `maxFrames`, frames are taken evenly across the span instead, and `frames.fps`
