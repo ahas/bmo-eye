@@ -14,8 +14,8 @@ the receiver's fair draw and keeps that name.
   and a set of checked reference images.
 - **A reference set** is the images of one subject that passed the checks, with where each came from and
   what licence it carries.
-- **A road** is how a picture is made: plain generation from the prompt, reference injection through an
-  IP-Adapter, or face-identity injection through IP-Adapter FaceID or InstantID.
+- **A road** is how a picture is made: plain generation from the prompt, or reference injection through
+  the checkpoint family's own multi-reference road, where each subject's pictures take slots of their own.
 
 The owner's example is a drawing "like 치이카와". That is a character subject: it has a written appearance
 and, if a record is built, a reference set of pictures of the character. The design below applies to any
@@ -279,14 +279,15 @@ installation it finds.
 | the card declaration | service `comfyui`, 11,000 MiB, priority 20, tier 2, `yield_by` process, one node |
 | the installation | `~/ComfyUI`, 56 GiB, ComfyUI 0.44.0 at commit `1332fab`, Python 3.10.12, torch 2.14.1+cu130 |
 | the launcher | `--lowvram --reserve-vram 0.5`, under `BMO_CARD_SERVICE=comfyui` and the node's card lock |
-| the SDXL checkpoint | `TalmendoXLBeta_v1.1.safetensors`, 6,938,040,682 B, an SDXL architecture |
-| the VAE | `sdxl_vae.safetensors` |
-| other diffusion models | Chroma and Z-Image models, with their text encoders; they are not on this road, which needs SDXL for the IP-Adapter |
-| what is absent | no IP-Adapter, no CLIP Vision, no InstantID, no InsightFace, no ControlNet, and no IP-Adapter or face-identity custom node |
 
-The installation has already drawn at 1024×1024 with the Talmendo checkpoint and the SDXL VAE. The older
-`~/comfy` checkout is a different, smaller installation: it carries IP-Adapter and ControlNet custom nodes
-but no weights and does not serve; the running installation is `~/ComfyUI`.
+A draw runs on three checkpoint families and no other: Krea 2, Qwen-Image 2.1 and FLUX 3 Image Klein, with
+the Krea 2 Turbo checkpoint as the default. The owner's rule holds the drawing to these three, so no SDXL
+file is part of a draw: no SDXL checkpoint, no SDXL VAE, no CLIP Vision encoder, no IP-Adapter, no
+InstantID and no InsightFace. A request naming a checkpoint outside the three fails `model-unsupported`
+before anything is drawn. The node may hold model files and custom nodes of other families; the model
+manifest names none of them and no road draws with them. Each family's files, their bytes, digests and
+licences, and the custom nodes its roads load stand in bmo-paint's model manifest, and bmo-paint's
+`docs/paint.md` states them.
 
 The card's state moves, and the design takes that as normal. At one read on 2026-11-08 ComfyUI was active
 and held 7,162 MiB, with 4,417 MiB free; at another read the unit was stopped, because the master stops it
@@ -296,87 +297,55 @@ and never asks the owner to stop one.
 
 ### The roads
 
-- **Road A, IP-Adapter Plus, is the default for a character, a style, an object or a place.** It reads the
-  reference pictures as image prompts through a CLIP Vision encoder and steers the SDXL checkpoint towards
-  their appearance. It is the right road for a cartoon character: IP-Adapter FaceID and InstantID are face
-  identity models, and a character such as 치이카와 has no human face for them to find.
-- **Road B, IP-Adapter FaceID or InstantID, is only for a real adult whose consent record stands.** It is a
-  likeness tool; it is never used on a subject without that record, and never as a fallback when Road A's
-  references are rejected.
-- **Road C, plain generation, is the prompt alone.** It is used when the request asks for no reference, when
-  the record is description-only, or when every candidate was rejected and the request allows a fallback.
+- **The native road is the default for every subject: a character, a work, a style, an object, a place or a
+  real person.** Each family takes the reference pictures through its own multi-reference nodes, for one
+  subject or several in one draw. Each subject's pictures take slots of their own, and the prompt gives
+  each subject its own sentence naming those slots, so the identities never share one averaged embedding.
+  The road needs no face analysis, so a character such as 치이카와, which has no human face, is carried the
+  same way as a person.
+- **No face-identity road exists.** A real person is drawn on the native road like any other subject, and
+  only where the consent record below stands.
+- **The plain road is the prompt alone,** on the family's own text-to-image graph. It is used when the
+  request asks for no reference, when a single subject's record is description-only, or when every
+  candidate was rejected and the request allows a fallback.
 
 The Lab-arena engine on n3 to n6 also has an image route the maker documents: `POST /v1/images/generations`,
 Qwen-Image-2.1-Turbo through stable-diffusion.cpp, taking a prompt, a size, a count, a seed and a step count.
 It is off on every node at this read (`image_generation: false`), and it takes no reference picture, so it
-cannot carry the injection this design is about. It is a plain-only alternative for Road C if the owner turns
-it on; this design keeps Road C on ComfyUI so one service and one workflow make every draw.
+cannot carry the injection this design is about. It is a plain-only alternative for the plain road if the
+owner turns it on; this design keeps the plain road on ComfyUI so one service and one workflow make every
+draw.
 
-### Settings
+### The families' roads
 
-Road A, on an SDXL checkpoint:
+| Family | Reference nodes | References in one draw | How the prompt names a picture |
+|---|---|---|---|
+| FLUX 3 Image Klein, distilled or undistilled base | `ReferenceMultiLatent` | at most ten, at most four per subject | `<ref_image_0>` onward; each subject also as `<obj_N>`, placed by a box on the 0–1000 grid |
+| Qwen-Image 2.1 | `TextEncodeQwenImage21`, slots `image_1` to `image_10` | at most ten, at most four per subject | `<image1>` onward; no box |
+| Krea 2 | one of three roads: the identity edit, the ReID masked two-pass, or the regional multi-LoRA node | at most two, one for each of two people | the scene and the person placed into it, or one box per subject |
 
-| Setting | Character or object | Style |
-|---|---|---|
-| checkpoint | `TalmendoXLBeta_v1.1.safetensors` | the same, or the checkpoint the style's own record names |
-| IP-Adapter | `ip-adapter-plus_sdxl_vit-h.safetensors` | the same |
-| CLIP Vision | `CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors` | the same |
-| weight | 0.65–0.80 | 0.45–0.60 |
-| weight type | `linear` or `ease in` | `style transfer` |
-| start / end | 0.0 / 0.80 | 0.0 / 0.70 |
-| combine | `average` over 2–4 references | `average` over 1–3 |
-| embeds scaling | `V only`; `K+V` where identity is weak | `V only` |
-| steps | 28 | 24 |
-| CFG | 6.5 | 6.0 |
-| sampler / scheduler | `dpmpp_2m` / `karras` | the same |
-| size | 1024×1024, or 832×1216 for a portrait | the requested size |
-| batch | 1; a second take is a second draw | the same |
-| seed | the request's, else random; recorded | the same |
-
-Road B, only with consent:
-
-| Setting | Value |
-|---|---|
-| checkpoint | as Road A |
-| IP-Adapter | the maker's SDXL FaceID adapter, or InstantID's `ip-adapter.bin` |
-| control | InstantID's ControlNet, weight 0.5–0.7 |
-| identity weight | 0.8–1.0 |
-| adapter weight | 0.6–0.8, start 0.0, end 1.0 |
-| face analysis | InsightFace `antelopev2`; one clear face image |
-| steps / CFG | 30 / 5.0–6.0 |
-| size | 1024×1024 |
-
-The workflow is a ComfyUI graph of `CheckpointLoaderSimple`, `CLIPVisionLoader`, `IPAdapterModelLoader`,
-`ImageBatch` over the accepted references, `IPAdapterAdvanced`, two `CLIPTextEncode` nodes, `EmptyLatentImage`,
-`KSampler`, `VAEDecode` and `SaveImage`. Road B swaps the adapter nodes for `InstantIDModelLoader`,
-`InstantIDFaceAnalysis` and `ApplyInstantID`. The exact node versions are pinned with the custom nodes; a
-workflow's JSON digest is recorded with the draw.
+- **Sampling is the family's own.** Each family runs the steps, CFG, sampler and scheduler its model
+  manifest entry gives the diffusion model; a request's step count is not used.
+- **The size is the request's,** 256 to 1536 pixels on each side, taken through the family's own empty
+  latent. The seed is the request's, else random, and is recorded. A second take is a second draw.
+- **A request naming more subjects than its road takes fails `multi-subject-unsupported`.**
+- **The exact graphs, files and figures are bmo-paint's** and stand in its `docs/paint.md`. A workflow's
+  JSON digest and its custom nodes' pinned commits are recorded with the draw.
 
 The prompt is built from the record, not from the research prose: the subject's description in at most
 1,200 characters, the requested scene, the style, and a short quality suffix. The negative prompt names the
 things the record says must not appear and the usual defects. The subject's name is included, but the
 description carries the drawing; a model that does not know the name still gets an accurate prompt.
 
-### What the ComfyUI installation must gain
+### What the ComfyUI installation holds
 
-**Phase 1, Road A:**
-
-1. The custom node `ComfyUI_IPAdapter_plus`, pinned to a commit, with its requirements installed in the
+1. The three families' diffusion models, text encoders and VAEs, and the LoRAs the Krea 2 roads load.
+2. The custom nodes those roads load, each pinned to a commit, with their requirements installed in the
    installation's own virtual environment.
-2. `models/clip_vision/CLIP-ViT-H-14-laion2B-s32B-b79K.safetensors` (about 2.5 GiB).
-3. `models/ipadapter/ip-adapter-plus_sdxl_vit-h.safetensors` (about 0.8 GiB).
-4. A model manifest, tracked with the installation, that records each file's name, size, SHA-256 and the
+3. A model manifest, tracked with the installation, that records each file's name, size, SHA-256 and the
    licence the model card states. A health check answers which of them are present; a draw that needs a
    missing file fails with `model-missing` and names it.
-5. No InsightFace and no ONNX runtime: Road A does not use them.
-
-**Phase 2, Road B:**
-
-1. The custom node `ComfyUI_InstantID`, `insightface` and `onnxruntime-gpu` in the same environment.
-2. `models/instantid/ip-adapter.bin`, InstantID's ControlNet, and the `antelopev2` InsightFace models.
-3. The same manifest and health check. The InsightFace models carry a non-commercial research licence; the
-   phase 2 deployment records it and the owner accepts it before the road is enabled. Road A and the
-   character path do not need any of this.
+4. No SDXL file and no IP-Adapter, CLIP Vision, InstantID, InsightFace or ONNX runtime: no road uses them.
 
 The installation's card declaration, unit and launcher stand today in the card master's own directory and
 are not tracked by a repository. They move, unchanged in behaviour, into the new bmo-paint repository's
@@ -408,11 +377,11 @@ stands and falls back to plain generation otherwise; `required` fails when no ac
 
 | The record | `auto` | `required` | `off` |
 |---|---|---|---|
-| `complete` | Road A or B with the set | the same | Road C |
-| `partial` | Road A with the accepted references, and the report says the set is thin | fails `no-licensed-reference` | Road C |
-| `description-only` | Road C, marked an interpretation | fails `no-licensed-reference` | Road C |
-| `missing` | research, then the row above | research, then the row above | Road C |
-| `ambiguous` | asks the owner; no draw yet | asks the owner; no draw yet | Road C |
+| `complete` | the native road with the set | the same | the plain road |
+| `partial` | the native road with the accepted references, and the report says the set is thin | fails `no-licensed-reference` | the plain road |
+| `description-only` | the plain road, marked an interpretation | fails `no-licensed-reference` | the plain road |
+| `missing` | research, then the row above | research, then the row above | the plain road |
+| `ambiguous` | asks the owner; no draw yet | asks the owner; no draw yet | the plain road |
 | `refused` | fails with the refusal | fails with the refusal | fails with the refusal |
 
 A reference that was rejected is never injected, however few remain. Where every candidate was rejected
@@ -428,8 +397,8 @@ The limit on adult content is a gate, not a style choice:
 - **No real person's likeness without consent.** A real person's subject needs an artifact `record` with
   labels `paint.consent` `person`, `paint.person-key` matching the subject, `paint.scope` naming
   likeness generation, and `paint.expires-at` in the future, filed on the owner's word. The draw names it
-  as `consentId`. Without it the draw fails `likeness-consent-missing`; Road B is not offered, and Road C
-  is not used to approximate the person from a description.
+  as `consentId`. Without it the draw fails `likeness-consent-missing`; the native road does not take the
+  person's pictures, and the plain road is not used to approximate the person from a description.
 - **The output is checked too.** A picture that reads as a minor in adult content, or as a real person's
   likeness without consent, is not shown; the draw fails `output-rejected`.
 
@@ -447,8 +416,8 @@ A draw is a member of bmo-paint with this shape:
 | `prompt`, `subject` | the request, and the subject key, name and kind, or null |
 | `record` | the subject record's `state`, artifact id and link, or null |
 | `references` | `requested`, `found`, `accepted`, `rejected` (each digest, address and reason), and the set's id, count, licences and checked-at |
-| `road` | `plain`, `ip-adapter-plus`, `ip-adapter-faceid` or `instantid` |
-| `injection` | the adapter files, checkpoint, weight, start, end, combine, steps, CFG, sampler, seed and size |
+| `road`, `family` | `plain`, or the family's native road: `flux3-native-multi-reference`, `flux3-image-klein-base-native-multi-reference`, `qwen-image-2.1-native-multi-reference`, `krea2-edit-two-reference`, `krea2-reid-masked-two-pass` or `krea2-regional-lora`; and the checkpoint's family |
+| `injection` | the checkpoint, the diffusion model, text encoder, VAE and LoRA files, the custom nodes with their pinned commits, steps, CFG, sampler, scheduler, seed and size |
 | `card` | the node, the service `comfyui`, the demand id, and what it waited on |
 | `comfy` | the prompt id and the workflow's JSON digest |
 | `output` | path, SHA-256, bytes, media type, width and height |
@@ -503,12 +472,11 @@ version.
 No figure in this document is a promise. The first build measures, and each figure carries the node, the
 engine version, the model file and the commit:
 
-1. The peak card memory and the wall time of Road A at 1024×1024 on n2, at ComfyUI 0.44.0, the pinned
-   IP-Adapter node, the chosen checkpoint and the draw's commit.
-2. The same for Road B, with the InsightFace and ControlNet files named, if phase 2 is opened.
-3. How often the card master stops ComfyUI for another occupant, and how long a draw waits, over a week of
+1. The peak card memory and the wall time of each family's native road at 1024×1024 on n2, with the
+   ComfyUI version, the pinned custom nodes, the checkpoint and the draw's commit.
+2. How often the card master stops ComfyUI for another occupant, and how long a draw waits, over a week of
    real requests.
-4. The eye check's time for one to eight candidate pictures, on the Lab-arena node that answers.
-5. How often the vision check accepts a candidate the research run offered, and how often it rejects one
+3. The eye check's time for one to eight candidate pictures, on the Lab-arena node that answers.
+4. How often the vision check accepts a candidate the research run offered, and how often it rejects one
    that looks right, so the acceptance threshold is a measured choice rather than a guess.
-6. The research run's time to a filed dossier, by key and by subject kind.
+5. The research run's time to a filed dossier, by key and by subject kind.
