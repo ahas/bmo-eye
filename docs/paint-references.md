@@ -1,10 +1,11 @@
 # Reference material for a drawing request
 
-**Status: design only.** This document settles how a drawing request finds, checks and injects reference
-material. It writes no code, and nothing in bmo-eye serves it today. It is filed here because the request
-reached the platform through this repository; bmo-eye's part in the design is the vision check alone. The
-unit that draws is new, and is called `bmo-paint`: its noun is `paint`, never `draw`, because `bmo draw` is
-the receiver's fair draw and keeps that name.
+This document settles how a drawing request finds, checks and injects reference material. It is filed
+here because the request reached the platform through this repository; bmo-eye's part in the design is
+the vision check alone, and nothing else in it is served by bmo-eye. The unit that draws is `bmo-paint`,
+which stands as its own repository and answers as the hosted tool `bmo/paint`; its `docs/paint.md` states
+what that tool runs, its files, graphs and figures. Its noun is `paint`, never `draw`, because `bmo draw`
+is the receiver's fair draw and keeps that name.
 
 ## The request, and the words
 
@@ -58,7 +59,7 @@ diffusion model is fed. bmo-paint keeps those bytes, because they are its input.
   | `paint.status` | `complete`, `partial` or `description-only` |
   | `paint.licences` | the distinct licence ids, comma-separated |
   | `paint.checked-at` | when the set was last checked, epoch milliseconds |
-  | `paint.consent` | the consent record's artifact id, for a real person only |
+  | `paint.consent` | the artifact id of a consent record filed for a real person, where one is; recorded only, never a condition of drawing |
 
 - A correction writes a new version through `POST /brains/{brainId}/memories/{memoryId}/versions`; the old
   version is superseded and stays. Nothing is deleted. The subject's `description` is updated with
@@ -113,7 +114,7 @@ A record is fresh for 30 days. It is refreshed earlier when it has fewer than tw
 supplied. A complete, fresh record is not researched again.
 
 The lookup's answer is one of: `complete` (a fresh set with at least one accepted reference), `partial` (a
-record exists but the set is thin or stale), `description-only` (the description stands, no licensed image
+record exists but the set is thin or stale), `description-only` (the description stands, no accepted image
 does), `missing`, `ambiguous` or `refused`.
 
 ### Writing a new record
@@ -147,7 +148,6 @@ request.
     "subjectKey": "chiikawa-1a2b3c4d",
     "language": "ko",
     "candidateLimit": 12,
-    "requireLicence": true,
     "imageEngines": ["openverse", "wikicommons.images", "unsplash"]
   }
 }
@@ -184,29 +184,23 @@ the last fenced block of its body is this JSON, which bmo-paint parses and valid
 ```
 
 The runner must not invent a candidate, a licence or a dimension. A candidate it cannot support goes into
-`unresolved`. bmo-paint re-reads every address and every licence line before it trusts a candidate: the
-research result is a lead, not a permission.
+`unresolved`. bmo-paint re-reads every address before it trusts a candidate: the research result is a
+lead, not a fact.
 
 ### Licence
 
-The reference set is not a scrapbook. A picture is injected only where its licence permits this use, or
-where the owner supplied it. The rest may inform the written description but never the injection.
+A licence is recorded and reported; it never decides whether a picture is injected, and a draw is never
+refused for one. The tool does not control what a licence permits: that is the owner's own concern, and a
+picture's licence line is metadata the draw carries for him.
 
-| Licence | Injected | Why |
-|---|---|---|
-| public domain, `CC0-1.0`, `PDM-1.0` | yes | no condition |
-| `CC-BY-*` | yes | attribution is recorded and shown |
-| `CC-BY-SA-*` | yes | attribution and share-alike are recorded |
-| Unsplash licence | yes, with the photographer's attribution | the licence permits it |
-| the owner's own picture, `owner-supplied` | yes | his own assertion, recorded |
-| written permission, filed in artifact | yes | the permission record is cited |
-| `CC-BY-NC-*` | description only | the use may not be non-commercial |
-| `CC-BY-ND-*` | description only | generation is a derivative |
-| unknown, all rights reserved, no licence line | description only | no permission is known |
+- The licence the research answer or the source gives is recorded beside the picture: in the manifest,
+  in the record's reference table, in the `paint.licences` label, and in the draw's `licences`. A picture
+  with no licence line is recorded as having none; the owner's own picture is recorded as `owner-supplied`.
+- The caption the room shows names the licences the result rests on, as the examples below do.
 
-A character's official art is usually all rights reserved. Where no licensed picture exists, the record is
-`description-only`: the pipeline can draw an interpretation from the written appearance, and the result says
-so. It never claims a likeness the references did not support.
+Where no accepted picture stands, the record is `description-only`: the pipeline can draw an
+interpretation from the written appearance, and the result says so. It never claims a likeness the
+references did not support.
 
 ## The reference images: fetch, check, keep
 
@@ -216,8 +210,7 @@ so. It never claims a likeness the references did not support.
   GIF, WebP, AVIF or TIFF, 5 MiB at most, answered as bytes and a media type. The explorer checks the
   address and the redirects; bmo-paint writes no fetcher of its own.
 - The provenance kept is the candidate's `pageUrl`, the direct `url`, the creator, the publisher, the
-  licence and the moment of the read. A direct address without a page is kept as `pageUrl` null and is not
-  injected unless the licence line is explicit.
+  licence and the moment of the read. A direct address without a page is kept with `pageUrl` null.
 - Pictures are deduplicated by SHA-256 and by a 64-bit perceptual hash: the same picture at two sizes is one
   reference.
 - A candidate larger than 4096 pixels on the long edge is not rejected; it is downscaled to 2048 for the
@@ -243,9 +236,9 @@ one `POST /looks`:
 > anything outside the JSON array.
 
 - A picture is **accepted** when `depictsSubject` is `yes` with confidence at least 0.7, `usableAsReference`
-  is true, it has no watermark or interface text across the subject, it is a single subject, and the
-  licence is in the injected column above. For a fictional subject, `realPerson` may be `no` or
-  `uncertain`; for a real person, it must be `yes` and the consent record must stand.
+  is true, it has no watermark or interface text across the subject, and it is a single subject. Its
+  licence plays no part in the verdict. For a fictional subject, `realPerson` may be `no` or
+  `uncertain`; for a real person, it must be `yes`.
 - A picture is **rejected** for any other answer, and the reason is kept. The rejected bytes are discarded.
 - Four accepted references are enough for a character; the pipeline asks for at most eight and stops when
   it has four. A set with one accepted reference is `partial`.
@@ -303,8 +296,8 @@ and never asks the owner to stop one.
   each subject its own sentence naming those slots, so the identities never share one averaged embedding.
   The road needs no face analysis, so a character such as 치이카와, which has no human face, is carried the
   same way as a person.
-- **No face-identity road exists.** A real person is drawn on the native road like any other subject, and
-  only where the consent record below stands.
+- **No face-identity road exists.** A real person is drawn on the native road like any other subject; no
+  consent record is required or checked.
 - **The plain road is the prompt alone,** on the family's own text-to-image graph. It is used when the
   request asks for no reference, when a single subject's record is description-only, or when every
   candidate was rejected and the request allows a fallback.
@@ -348,7 +341,7 @@ description carries the drawing; a model that does not know the name still gets 
 4. No SDXL file and no IP-Adapter, CLIP Vision, InstantID, InsightFace or ONNX runtime: no road uses them.
 
 The installation's card declaration, unit and launcher stand today in the card master's own directory and
-are not tracked by a repository. They move, unchanged in behaviour, into the new bmo-paint repository's
+are not tracked by a repository. They move, unchanged in behaviour, into the bmo-paint repository's
 `comfy/` folder, so the installation, the model manifest and the drawing service are one versioned thing.
 The declaration keeps `service = "comfyui"`, 11,000 MiB, tier 2 and `yield_by = "process"`; the master's
 placement of `comfyui` on n2 stays.
@@ -371,15 +364,16 @@ placement of `comfyui` on n2 stays.
 ## Choosing a road, and what is refused
 
 A draw request carries `subject` (optional), `references` (`auto`, `required` or `off`), `adult` (default
-false), `consentId` (only for a real person), and the output options. `auto` uses a reference set when one
+false) and the output options; a `consentId` it carries is accepted and ignored, since consent is not
+checked. `auto` uses a reference set when one
 stands and falls back to plain generation otherwise; `required` fails when no accepted reference stands;
 `off` draws plain and never looks a subject up.
 
 | The record | `auto` | `required` | `off` |
 |---|---|---|---|
 | `complete` | the native road with the set | the same | the plain road |
-| `partial` | the native road with the accepted references, and the report says the set is thin | fails `no-licensed-reference` | the plain road |
-| `description-only` | the plain road, marked an interpretation | fails `no-licensed-reference` | the plain road |
+| `partial` | the native road with the accepted references, and the report says the set is thin | the same | the plain road |
+| `description-only` | the plain road, marked an interpretation | fails `references-rejected` | the plain road |
 | `missing` | research, then the row above | research, then the row above | the plain road |
 | `ambiguous` | asks the owner; no draw yet | asks the owner; no draw yet | the plain road |
 | `refused` | fails with the refusal | fails with the refusal | fails with the refusal |
@@ -394,17 +388,15 @@ The limit on adult content is a gate, not a style choice:
   be, a minor: a real person under 18, a fictional character whose canonical appearance is childlike, or an
   image the vision check reads as `child` or `teen`. A childlike character is refused for adult content even
   though the character is fictional.
-- **No real person's likeness without consent.** A real person's subject needs an artifact `record` with
-  labels `paint.consent` `person`, `paint.person-key` matching the subject, `paint.scope` naming
-  likeness generation, and `paint.expires-at` in the future, filed on the owner's word. The draw names it
-  as `consentId`. Without it the draw fails `likeness-consent-missing`; the native road does not take the
-  person's pictures, and the plain road is not used to approximate the person from a description.
-- **The output is checked too.** A picture that reads as a minor in adult content, or as a real person's
-  likeness without consent, is not shown; the draw fails `output-rejected`.
+- **The output is checked too.** A picture that reads as a minor in adult content is not shown; the draw
+  fails `output-rejected`.
 
-Refusal codes: `subject-refused-minor`, `likeness-consent-missing`, `no-licensed-reference`,
-`references-rejected`, `output-rejected`, `subject-ambiguous`, `model-missing`. A refusal names what would
-unblock it: a consent record, a licensed picture, or a different subject.
+Consent, like a licence, is not the tool's to control: a real person's subject is drawn without a consent
+record, and none is asked for or checked. A consent record the owner files stays in the subject's dossier
+as metadata.
+
+Refusal codes: `subject-refused-minor`, `references-rejected`, `output-rejected`, `subject-ambiguous`,
+`model-missing`. A refusal names what would unblock it: an accepted picture or a different subject.
 
 ## The draw record, and what the owner sees
 
@@ -431,7 +423,6 @@ references were used, how many, their licences, and a link to the subject record
 - "레퍼런스를 찾지 못해서 설명만으로 그린 해석이야. [레코드](…)"
 - "찾은 레퍼런스가 검증에서 다 떨어져서 설명만으로 그렸어. 이유는 레코드에 있어."
 - "성인 콘텐츠로는 그릴 수 없어. 이 대상은 아이로 보여."
-- "실제 인물의 얼굴은 동의 기록이 있어야 그릴 수 있어. 지금은 없어서 그리지 않았어."
 
 The rejected references, the exact settings and the sources are in the record behind the link, not in the
 room. The owner can open the subject record, replace a reference with his own picture, or ask for a refresh.
@@ -456,16 +447,16 @@ version.
 
 | Repository | What is built |
 |---|---|
-| **bmo-paint (new)** | the drawing service: its API, store, CLI `bmo paint`, tool `paint/draw`, reference lookup, research call, fetch, eye check, record writes, card demand, ComfyUI bench, result serving, and the `comfy/` folder that takes the ComfyUI declaration, unit, launcher and model manifest under version control. This is the bulk of the work. |
-| **bmo-research** | the `references` run key: its prompt, its candidate schema, its licence-aware sources, and the dossier it files in artifact. Without it the pipeline can still use an owner-supplied picture, but cannot research a missing subject. |
+| **bmo-paint** | the drawing service: its API, store, CLI `bmo paint`, tool `bmo/paint`, reference lookup, research call, fetch, eye check, record writes, card demand, ComfyUI bench, result serving, and the `comfy/` folder that takes the ComfyUI declaration, unit, launcher and model manifest under version control. This is the bulk of the work. |
+| **bmo-research** | the `references` run key: its prompt, its candidate schema with the licence line each source gives, and the dossier it files in artifact. Without it the pipeline can still use an owner-supplied picture, but cannot research a missing subject. |
 | **bmo-explorer** | a structured image search over the engines it already asks (Openverse, Wikimedia Commons, Unsplash), answering direct address, page address, creator, publisher, dimensions, media type and licence as fields, not as text in a snippet. `fetch_raster` already gives the bytes; the licence fields are the gap. |
-| **bmo-agency** | the chat agent's manual and tool listing: a drawing request goes to `paint/draw`; the subject is read from the request, not guessed; the consent question and the adult gate are asked before the draw; the result is sent with its caption. No service code. |
+| **bmo-agency** | the chat agent's manual and tool listing: a drawing request goes to `bmo/paint`; the subject is read from the request, not guessed; the adult gate is asked before the draw; the result is sent with its caption. No service code. |
 | **bmo-arbiter** | no code. The `comfyui` placement on n2 stays; the declaration moves into bmo-paint's `comfy/` and the master is pointed at it. bmo-paint asks for a card of `comfyui`; no new service declaration is needed. |
 | **bmo-eye** | no code. The design uses `POST /uploads` and `POST /looks` in `see` with `format` `json`; the check's question and acceptance rules belong to bmo-paint. |
 | **bmo-brain** | no code. The subject, memory, version and label routes above all stand. |
 | **bmo-artifact** | no code for the first version. The `record` kind, labels, attachments, cover and shares are enough. Exact reference bytes stay in bmo-paint; a preserved-original attachment is a later change if the owner wants the archive to be their only keeper. |
 | **bmo-node**, **bmo-receiver**, **bmo-testbed** | no service code. The node service's target route and the hub's `exec`, `upload` and `download` are the road to n2; the receiver's room picture send is the road to the room; the new repository brings its own `testbed.toml`. |
-| **bmo-web** | later: a console screen for the subject records, the rejected references and the consent records. The first version uses the archive and the room. |
+| **bmo-web** | later: a console screen for the subject records and the rejected references. The first version uses the archive and the room. |
 
 ## What the first build must measure
 
