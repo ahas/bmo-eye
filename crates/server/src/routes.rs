@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{DefaultBodyLimit, Path, Query, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::sse::{Event, Sse};
 use axum::response::{IntoResponse, Response};
@@ -26,13 +26,18 @@ pub struct App {
   pub token: Arc<String>,
 }
 
+/// The largest upload of a picture or a document.
+const PICTURE_CEILING: usize = 20 * 1024 * 1024;
+/// The largest upload of a video, and so the body limit the upload route reads up to.
+const VIDEO_CEILING: usize = 2 * 1024 * 1024 * 1024;
+
 pub fn app(app: App) -> Router {
   let state = Arc::new(app);
   Router::new()
     .route("/health", get(health))
     .route("/looks", get(list_looks).post(create_look))
     .route("/looks/{look_id}", get(get_look).delete(delete_look))
-    .route("/uploads", post(create_upload))
+    .route("/uploads", post(create_upload).layer(DefaultBodyLimit::max(VIDEO_CEILING)))
     .route("/uploads/{upload_id}/content", get(upload_content))
     .route("/uploads/{upload_id}", delete(delete_upload))
     .route("/modes", get(get_modes))
@@ -225,14 +230,21 @@ async fn delete_look(State(app): State<Arc<App>>, Path(id): Path<i64>) -> Respon
 async fn create_upload(
   State(app): State<Arc<App>>,
   headers: HeaderMap,
-  body: axum::body::Bytes,
+  body: Result<axum::body::Bytes, axum::extract::rejection::BytesRejection>,
 ) -> Response {
+  let body = match body {
+    Ok(body) => body,
+    Err(e) if e.status() == StatusCode::PAYLOAD_TOO_LARGE => {
+      return failure(StatusCode::PAYLOAD_TOO_LARGE, "too-large", "the body is over the ceiling");
+    }
+    Err(e) => return failure(StatusCode::BAD_REQUEST, "bad-request", e.body_text()),
+  };
   let media = headers
     .get(axum::http::header::CONTENT_TYPE)
     .and_then(|v| v.to_str().ok())
     .map(|s| s.split(';').next().unwrap_or(s).trim().to_string())
     .unwrap_or_else(|| "application/octet-stream".into());
-  let ceiling: usize = if media.starts_with("video/") { 2 * 1024 * 1024 * 1024 } else { 20 * 1024 * 1024 };
+  let ceiling = if media.starts_with("video/") { VIDEO_CEILING } else { PICTURE_CEILING };
   if body.len() > ceiling {
     return failure(
       StatusCode::PAYLOAD_TOO_LARGE,

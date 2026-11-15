@@ -105,6 +105,21 @@ async fn a_look_walks_its_chain_and_records_every_rung() {
 }
 
 #[tokio::test]
+async fn an_upload_is_taken_up_to_its_ceiling_and_refused_over_it() {
+  let (base, token, dir) = service().await;
+  let client = EyeClient::new(&base).with_token(&token);
+  let mut picture = png();
+  picture.resize(3 * 1024 * 1024, 0);
+  let upload = client.upload(picture, "image/png").await.unwrap();
+  assert_eq!(upload.bytes, 3 * 1024 * 1024);
+  let mut picture = png();
+  picture.resize(21 * 1024 * 1024, 0);
+  let err = client.upload(picture, "image/png").await.unwrap_err();
+  assert!(err.starts_with("413 too-large"), "{err}");
+  let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
 async fn a_look_without_a_token_is_refused() {
   let (base, _, dir) = service().await;
   let client = EyeClient::new(&base);

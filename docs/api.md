@@ -127,8 +127,9 @@ upload for as long as a look names it, and removes it a day after its last look 
 | `GET /uploads/{uploadId}/content` | the `Range` header | 200 or 206, the bytes |
 | `DELETE /uploads/{uploadId}` | | 204 |
 
-**An upload:** `id`, `mediaType`, `bytes`, `sha256`, `createdAt`. A body over `20971520` bytes is 413
-`too-large`; a media type outside the set in 「What each mode reads」 is 422 `unsupported-source`.
+**An upload:** `id`, `mediaType`, `bytes`, `sha256`, `createdAt`. A body over `20971520` bytes, or over
+`2147483648` bytes where its media type is a video, is 413 `too-large`, whatever size the body arrives at;
+a media type outside the set in 「What each mode reads」 is 422 `unsupported-source`.
 
 ## Modes
 
@@ -220,7 +221,7 @@ is the backend's own when the backend hears audio (Gemini), and n2's CPU speech 
 
 | What | Ceiling |
 |---|---|
-| An upload | 20 MiB, or 2 GiB where the mode is `watch` |
+| An upload | 20 MiB, or 2 GiB where its media type is a video |
 | Sources in one look | 16 for `see` and `read`, 1 for `watch` |
 | A link downloaded with `yt-dlp` | 2 hours, 1080p at most |
 | `waitMs` | 600,000 |
