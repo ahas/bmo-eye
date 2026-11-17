@@ -2,5 +2,4 @@ results/
 __pycache__/
 *.pyc
 target/
-.graph/*
-!.graph/settings.toml
+.graph/
