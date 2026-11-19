@@ -219,6 +219,41 @@ async fn a_look_without_a_token_is_refused() {
 }
 
 #[tokio::test]
+async fn a_body_that_does_not_read_answers_bad_request_with_a_code_and_an_error() {
+  let (base, token, dir) = service().await;
+  let answer = reqwest::Client::new()
+    .request(reqwest::Method::POST, format!("{base}/looks"))
+    .header("content-type", "application/json")
+    .bearer_auth(token)
+    .body(r#"{"mode": "see", "question": "what is shown?", "sources": [{"kind": "upload"}]}"#)
+    .send()
+    .await
+    .unwrap();
+  assert_eq!(answer.status().as_u16(), 400, "{answer:?}");
+  let why = serde_json::from_str::<Failure>(&answer.text().await.unwrap()).unwrap();
+  assert_eq!(why.code, "bad-request", "{why:?}");
+  assert!(why.error.contains("sources[0]"), "{why:?}");
+  assert!(why.error.contains("upload"), "{why:?}");
+  let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn a_query_that_does_not_read_answers_bad_request_with_a_code_and_an_error() {
+  let (base, token, dir) = service().await;
+  let answer = reqwest::Client::new()
+    .request(reqwest::Method::GET, format!("{base}/looks?limit=not-a-number"))
+    .bearer_auth(token)
+    .send()
+    .await
+    .unwrap();
+  assert_eq!(answer.status().as_u16(), 400, "{answer:?}");
+  let why = serde_json::from_str::<Failure>(&answer.text().await.unwrap()).unwrap();
+  assert_eq!(why.code, "bad-request", "{why:?}");
+  assert!(why.error.contains("limit"), "{why:?}");
+  let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
 async fn a_mode_refuses_what_it_does_not_read() {
   let (base, token, dir) = service().await;
   let client = EyeClient::new(&base).with_token(&token);

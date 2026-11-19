@@ -97,9 +97,19 @@ struct LookQuery {
 
 async fn create_look(
   State(app): State<Arc<App>>,
-  Query(q): Query<LookQuery>,
-  Json(body): Json<NewLook>,
+  q: Result<Query<LookQuery>, axum::extract::rejection::QueryRejection>,
+  body: Result<Json<NewLook>, axum::extract::rejection::JsonRejection>,
 ) -> Response {
+  // A body or a query that does not read is refused with the documented failure (`docs/api.md`): the
+  // extractor's own answer never reaches a caller.
+  let q = match q {
+    Ok(Query(q)) => q,
+    Err(e) => return failure(StatusCode::BAD_REQUEST, "bad-request", e.body_text()),
+  };
+  let body = match body {
+    Ok(Json(body)) => body,
+    Err(e) => return failure(StatusCode::BAD_REQUEST, "bad-request", e.body_text()),
+  };
   let wait = q.wait_ms.unwrap_or(0).clamp(0, 600_000);
   if body.question.trim().is_empty() {
     return failure(StatusCode::BAD_REQUEST, "bad-request", "a look needs a question");
@@ -198,7 +208,14 @@ struct ListQuery {
   state: Option<String>,
 }
 
-async fn list_looks(State(app): State<Arc<App>>, Query(q): Query<ListQuery>) -> Response {
+async fn list_looks(
+  State(app): State<Arc<App>>,
+  q: Result<Query<ListQuery>, axum::extract::rejection::QueryRejection>,
+) -> Response {
+  let q = match q {
+    Ok(Query(q)) => q,
+    Err(e) => return failure(StatusCode::BAD_REQUEST, "bad-request", e.body_text()),
+  };
   let limit = q.limit.unwrap_or(50).clamp(1, 200);
   match app.store.looks(limit, q.after, q.mode.as_deref(), q.state.as_deref()) {
     Ok(page) => Json(page).into_response(),
@@ -299,7 +316,14 @@ struct EventQuery {
   after: Option<i64>,
 }
 
-async fn events(State(app): State<Arc<App>>, Query(q): Query<EventQuery>) -> Response {
+async fn events(
+  State(app): State<Arc<App>>,
+  q: Result<Query<EventQuery>, axum::extract::rejection::QueryRejection>,
+) -> Response {
+  let q = match q {
+    Ok(Query(q)) => q,
+    Err(e) => return failure(StatusCode::BAD_REQUEST, "bad-request", e.body_text()),
+  };
   let mut last = q.after.unwrap_or(0);
   let store = app.store.clone();
   let stream = async_stream(move |tx| async move {
