@@ -243,7 +243,12 @@ impl Chain {
 
 /// The error of a look the chain ran out on: every rung's reason, so a caller reading only the error reads why.
 fn ran_out(chain: &[ChainEntry]) -> String {
-  let reasons: Vec<String> = chain
+  format!("every backend of the chain failed: {}", rung_reasons(chain).join("; "))
+}
+
+/// Each rung of a chain report as a sentence: the backend and its node, what it did, and why.
+pub fn rung_reasons(chain: &[ChainEntry]) -> Vec<String> {
+  chain
     .iter()
     .map(|entry| {
       let rung = match &entry.node {
@@ -252,8 +257,7 @@ fn ran_out(chain: &[ChainEntry]) -> String {
       };
       format!("{rung} {}: {}", entry.state, entry.reason.as_deref().unwrap_or("no reason given"))
     })
-    .collect();
-  format!("every backend of the chain failed: {}", reasons.join("; "))
+    .collect()
 }
 
 /// The format an answer is reported in: `json` where the look asked for it, else the mode's own.

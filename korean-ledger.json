@@ -1,4 +1,4 @@
 {
-  "crates/server/src/main.rs": 6,
-  "crates/server/src/routes.rs": 3
+  "crates/server/src/routes.rs": 3,
+  "crates/server/src/tool.rs": 3
 }

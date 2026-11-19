@@ -13,3 +13,5 @@ bmo use eye/watch --arg path=https://www.youtube.com/watch?v=… --arg question=
   `maxFrames` (12 by default) decides what a minute of video is answered from. `fps` is the ceiling, not a
   promise: frames are taken evenly across the span when the count would take more.
 - **A minute of video takes about a minute,** most of it the speech model and the frames' reading.
+- **A video is never handed to you.** No harness here reads a video in a tool's answer, so where no backend
+  can answer, the call answers an error with every backend's reason.

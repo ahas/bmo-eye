@@ -195,8 +195,7 @@ is every backend that stood before the answer, in the order they were asked:
 - **`answered`** ends the chain; `backend` names that entry.
 - **`handed-off`** ends the chain with no answer of the server's: the last rung of a chain whose caller
   asked for the hand-off and takes the input natively. The look ends `done` with `answer` null and
-  `backend.name` `caller`, and the tool host or the agent reads the source itself (「Handing the input to
-  the caller」).
+  `backend.name` `caller`, and the agent reads the source itself (「Handing the input to the caller」).
 
 ## Handing the input to the caller
 
@@ -209,8 +208,19 @@ carries it. The server cannot tell a caller's model from the request, so the cal
   every rung's reason where nothing else answered.
 - **The look says so:** `backend.name` is `caller`, `answer` is null, and the chain's last entry is
   `handed-off` with the reason naming what the caller takes.
-- **The tool host answers with the material,** not with prose: the sources as the caller can read them —
-  an upload's bytes, a URL, a path — the question, and the mode. The agent then looks itself.
+- **The eye tool asks for the hand-off for an agent's run, in `see` and `read`.** A call of the tool carries
+  the tool host's session record, and a record whose labels name a run line other than `shell` is an agent's
+  run, whose harness opens a picture and a PDF itself; the tool sets `handOff` true for it. A person's
+  `bmo use` (line `shell`), a scheduled call (no line) and every `watch` look leave it false, since no harness
+  here reads a video in a tool's answer. A service that asks the API itself, bmo-paint among them, states its
+  own options and leaves it false. The record does not say which model a run is routed to, so a run whose
+  model reads no picture is handed one all the same and answers that it cannot see it.
+- **The eye tool answers a handed-off look with the material,** not with prose. Its text says that no
+  backend answered, gives the question, names each source the way the agent opens it — a path on this
+  machine with its media type, or an address — and ends with every rung's reason. A picture at a path whose
+  base64 fits in 5 MB, the most a model's API takes for one picture, also stands in the answer as an image
+  piece, which a run holding no file reader of its own sees there; a document and an address stand as their
+  path and URL alone. The structured part is the look itself. The agent then looks itself.
 - **A caller that takes nothing over 30 seconds of video** is not handed a video: the chain's `caller`
   entry is `skipped` and the look ends `failed` where nothing else answered.
 - **`caller` is never the first rung.** A look asks the local model first, then a hosted one, then the

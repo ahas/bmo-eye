@@ -15,5 +15,7 @@ bmo use eye/see --arg path=/home/…/image.jpg --arg question="무엇이 보이�
   largest bar. It describes; for a page of text use `eye/read`.
 - **What it costs:** a picture is about 300 tokens of the node's context and a few seconds of its CPU, and
   the answer is one line to a paragraph in about three to six seconds.
-- **When it cannot answer:** the answer's `state` is `failed` with the reason, and the call answers an error
-  the model can read. Nothing is retried behind your back; the chain's next rung is asked by the service.
+- **When no backend can answer:** the look is handed to you. The answer says so, gives your question and
+  the picture's path, carries the picture itself where it is small enough to send, and ends with why every
+  backend failed; look at the picture yourself and answer. Called from a shell, where nobody looks, the call
+  answers an error with every backend's reason instead (`docs/api.md`, 「Handing the input to the caller」).

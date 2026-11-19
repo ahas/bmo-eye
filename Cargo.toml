@@ -65,6 +65,7 @@ path = "src/lib.rs"
 
 [dev-dependencies]
 axum.workspace = true
+base64.workspace = true
 bmo-eye-client = { path = "crates/client" }
 eye-server = { path = "crates/server" }
 reqwest.workspace = true

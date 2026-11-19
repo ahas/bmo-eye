@@ -7,6 +7,45 @@
     "mode": { "type": "string", "enum": ["see", "read", "watch"] },
     "state": { "type": "string", "enum": ["queued", "running", "done", "failed", "stopped"] },
     "question": { "type": "string" },
+    "sources": {
+      "type": "array",
+      "description": "The sources as the look read them: a path on this machine or an address the agent opens itself where the look was handed off.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "bytes"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["upload", "url", "path"] },
+          "uploadId": { "type": "integer" },
+          "url": { "type": "string" },
+          "path": { "type": "string" },
+          "mediaType": { "type": "string" },
+          "bytes": { "type": "integer" },
+          "width": { "type": "integer" },
+          "height": { "type": "integer" },
+          "durationMs": { "type": "integer" }
+        }
+      }
+    },
+    "options": { "type": "object", "description": "The options the look ran with, defaults filled in." },
+    "chain": {
+      "type": "array",
+      "description": "Every backend tried, in order; the last is handed-off where the look was handed to the caller.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["backend", "state", "ms"],
+        "properties": {
+          "backend": { "type": "string", "enum": ["lab-arena", "openrouter", "gemini", "caller"] },
+          "node": { "type": ["string", "null"] },
+          "model": { "type": ["string", "null"] },
+          "state": { "type": "string", "enum": ["answered", "failed", "skipped", "handed-off"] },
+          "reason": { "type": ["string", "null"] },
+          "ms": { "type": "integer" }
+        }
+      }
+    },
+    "labels": { "type": "object", "additionalProperties": { "type": "string" } },
     "backend": {
       "type": ["object", "null"],
       "description": "The backend that answered: the chain's rung, its node and its model.",

@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::routing::{get, post};
 use axum::{Json, Router};
+use base64::Engine as _;
 use bmo_eye_client::*;
 use eye_server::config::Settings;
 use eye_server::routes::{App, app};
@@ -334,4 +335,63 @@ async fn a_look_that_asks_for_the_hand_off_ends_on_the_caller() {
   assert_eq!(look.backend.as_ref().unwrap().name, "caller");
   assert_eq!(look.chain.last().unwrap().state, "handed-off");
   let _ = std::fs::remove_dir_all(service.dir);
+}
+
+/// One call of the tool host's to `eye/see` at a picture on disk, under a session record whose labels are `labels`.
+async fn tool_see(service: &Service, labels: Value) -> (Value, String) {
+  let picture = service.dir.join("picture.png");
+  std::fs::write(&picture, png()).unwrap();
+  let path = std::fs::canonicalize(&picture).unwrap().to_string_lossy().to_string();
+  let call = serde_json::json!({
+    "protocol": 1,
+    "kind": "call",
+    "entry": "eye/see",
+    "arguments": {"path": path, "question": "who is shown?"},
+    "session": {"holderName": "tester", "labels": labels},
+  });
+  let client = EyeClient::new(&service.base).with_token(&service.token);
+  (eye_server::tool::answer(&call, &client).await, path)
+}
+
+#[tokio::test]
+async fn an_agent_s_call_no_backend_answers_is_answered_with_the_picture_and_the_question() {
+  let service = service_with(vec![("first", chat("", "stop"))], None).await;
+  let (answer, path) = tool_see(&service, serde_json::json!({"line": "chat"})).await;
+  assert_eq!(answer["isError"], false, "{answer}");
+  assert_eq!(answer["structuredContent"]["backend"]["name"], "caller");
+  let text = answer["content"][0]["text"].as_str().unwrap();
+  assert!(text.contains("Question: who is shown?\n"), "{text}");
+  assert!(text.contains(&format!("Source: {path} (image/png)\n")), "{text}");
+  assert!(text.contains("- lab-arena first failed: the engine answered no words\n"), "{text}");
+  assert_eq!(
+    answer["content"][1],
+    serde_json::json!({
+      "type": "image",
+      "data": base64::engine::general_purpose::STANDARD.encode(png()),
+      "mimeType": "image/png",
+    })
+  );
+  let _ = std::fs::remove_dir_all(service.dir);
+}
+
+#[tokio::test]
+async fn a_shell_s_call_no_backend_answers_is_refused_with_every_rung_s_reason() {
+  let service = service_with(vec![("first", chat("", "stop"))], None).await;
+  let (answer, _) = tool_see(&service, serde_json::json!({"line": "shell"})).await;
+  assert_eq!(answer["isError"], true, "{answer}");
+  let text = answer["content"][0]["text"].as_str().unwrap();
+  assert!(
+    text.contains("caller skipped: the look did not ask for the caller's hand-off"),
+    "{text}"
+  );
+  let _ = std::fs::remove_dir_all(service.dir);
+}
+
+#[test]
+fn only_an_agent_s_see_and_read_ask_for_the_hand_off() {
+  use eye_server::tool::asks_hand_off;
+  let agent = serde_json::json!({"labels": {"line": "search"}});
+  assert!(asks_hand_off(Mode::Read, &agent));
+  assert!(!asks_hand_off(Mode::Watch, &agent));
+  assert!(!asks_hand_off(Mode::See, &serde_json::json!({"holderName": "schedule"})));
 }
