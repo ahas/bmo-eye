@@ -17,6 +17,7 @@ pub enum Rung {
     key_file: String,
   },
   OpenRouter {
+    address: String,
     model: String,
     key_file: String,
   },
@@ -84,6 +85,7 @@ impl Chain {
       .collect();
     if settings.hosted.openrouter.enabled {
       rungs.push(Rung::OpenRouter {
+        address: settings.hosted.openrouter.address.clone(),
         model: settings.hosted.openrouter.model.clone(),
         key_file: settings.hosted.openrouter.key_file.clone(),
       });
@@ -103,6 +105,7 @@ impl Chain {
     _settings: &Settings,
     rung: &Rung,
     mode: Mode,
+    options: &Options,
     material: &Material,
     source_kinds: &[String],
   ) -> Result<(), String> {
@@ -133,6 +136,9 @@ impl Chain {
         }
       }
       Rung::Caller => {
+        if !options.hand_off {
+          return Err("the look did not ask for the caller's hand-off".into());
+        }
         if mode == Mode::Watch
           && let Some(seconds) = material.duration_s
           && seconds > 30.0
@@ -149,6 +155,7 @@ impl Chain {
     &self,
     settings: &Settings,
     mode: Mode,
+    options: &Options,
     material: &Material,
     source_kinds: &[String],
   ) -> Outcome {
@@ -163,7 +170,7 @@ impl Chain {
         reason: None,
         ms: 0,
       };
-      if let Err(why) = Chain::takes(settings, rung, mode, material, source_kinds) {
+      if let Err(why) = Chain::takes(settings, rung, mode, options, material, source_kinds) {
         entry.state = "skipped".into();
         entry.reason = Some(why);
         entry.ms = started.elapsed().as_millis() as i64;
@@ -186,7 +193,10 @@ impl Chain {
             ..Outcome::default()
           };
         }
-        _ => match answer(settings, rung, mode, material).await {
+        _ => match answer(settings, rung, mode, material)
+          .await
+          .and_then(|reply| shaped(reply, &options.format))
+        {
           Ok(reply) => {
             entry.state = "answered".into();
             entry.ms = started.elapsed().as_millis() as i64;
@@ -200,7 +210,7 @@ impl Chain {
               chain,
               answer: Some(Answer {
                 text: reply.text,
-                format: material_format(mode),
+                format: answer_format(mode, &options.format),
               }),
               speech: material.speech.clone(),
               frames: material.frames.clone(),
@@ -224,18 +234,79 @@ impl Chain {
       }
     }
     Outcome {
+      error: Some(ran_out(&chain)),
       chain,
-      error: Some("every backend of the chain failed".into()),
       ..Outcome::default()
     }
   }
 }
 
-pub fn material_format(mode: Mode) -> String {
+/// The error of a look the chain ran out on: every rung's reason, so a caller reading only the error reads why.
+fn ran_out(chain: &[ChainEntry]) -> String {
+  let reasons: Vec<String> = chain
+    .iter()
+    .map(|entry| {
+      let rung = match &entry.node {
+        Some(node) => format!("{} {node}", entry.backend),
+        None => entry.backend.clone(),
+      };
+      format!("{rung} {}: {}", entry.state, entry.reason.as_deref().unwrap_or("no reason given"))
+    })
+    .collect();
+  format!("every backend of the chain failed: {}", reasons.join("; "))
+}
+
+/// The format an answer is reported in: `json` where the look asked for it, else the mode's own.
+fn answer_format(mode: Mode, asked: &str) -> String {
+  if asked == JSON {
+    return JSON.into();
+  }
   match mode {
     Mode::Read => "markdown".into(),
     _ => "text".into(),
   }
+}
+
+const JSON: &str = "json";
+
+/// A rung's reply in the format the look asked for, or why it is none: under `json`, the JSON document alone.
+fn shaped(reply: Reply, format: &str) -> Result<Reply, String> {
+  if format != JSON {
+    return Ok(reply);
+  }
+  let text = json_document(&reply.text)?;
+  Ok(Reply { text, ..reply })
+}
+
+/// The JSON document an answer holds: the answer itself where it reads whole, else the first fenced code
+/// block of it that reads.
+fn json_document(text: &str) -> Result<String, String> {
+  use pulldown_cmark::{Event, Parser, Tag, TagEnd};
+  let reads = |candidate: &str| serde_json::from_str::<serde_json::Value>(candidate).is_ok();
+  let whole = text.trim();
+  if reads(whole) {
+    return Ok(whole.to_string());
+  }
+  let mut block: Option<String> = None;
+  for event in Parser::new(text) {
+    match event {
+      Event::Start(Tag::CodeBlock(_)) => block = Some(String::new()),
+      Event::Text(part) => {
+        if let Some(open) = block.as_mut() {
+          open.push_str(&part);
+        }
+      }
+      Event::End(TagEnd::CodeBlock) => {
+        if let Some(closed) = block.take()
+          && reads(closed.trim())
+        {
+          return Ok(closed.trim().to_string());
+        }
+      }
+      _ => {}
+    }
+  }
+  Err("the answer holds no JSON document".into())
 }
 
 fn max_tokens(mode: Mode) -> i64 {
@@ -252,37 +323,45 @@ async fn answer(
   mode: Mode,
   material: &Material,
 ) -> Result<Reply, String> {
-  let (url, key, model) = match rung {
+  // Each backend turns its thinking off through its own field; a model left thinking spends the token cap on
+  // the thought and is cut before it answers.
+  let (url, key_file, model, thinking_off) = match rung {
     Rung::Lab-arena {
       address,
       model,
       key_file,
       ..
-    } => {
-      let key = std::fs::read_to_string(expand(key_file))
-        .map_err(|e| format!("{}: {e}", expand(key_file).display()))?;
-      (format!("http://{address}/v1/chat/completions"), key.trim().to_string(), model.clone())
-    }
-    Rung::OpenRouter { model, key_file } => {
-      let key = std::fs::read_to_string(expand(key_file))
-        .map_err(|e| format!("{}: {e}", expand(key_file).display()))?;
-      (
-        "https://openrouter.ai/api/v1/chat/completions".to_string(),
-        key.trim().to_string(),
-        model.clone(),
-      )
-    }
+    } => (
+      format!("http://{address}/v1/chat/completions"),
+      key_file,
+      model,
+      ("chat_template_kwargs", serde_json::json!({"enable_thinking": false})),
+    ),
+    Rung::OpenRouter {
+      address,
+      model,
+      key_file,
+    } => (
+      format!("{address}/chat/completions"),
+      key_file,
+      model,
+      ("reasoning", serde_json::json!({"enabled": false})),
+    ),
     Rung::Gemini { .. } => return Err("the Gemini rung is not built".into()),
     Rung::Caller => return Err("the caller rung answers nothing".into()),
   };
-  let body = serde_json::json!({
+  let key = std::fs::read_to_string(expand(key_file))
+    .map_err(|e| format!("{}: {e}", expand(key_file).display()))?;
+  let key = key.trim().to_string();
+  let cap = max_tokens(mode);
+  let mut body = serde_json::json!({
     "model": model,
-    "max_tokens": max_tokens(mode),
+    "max_tokens": cap,
     "temperature": 0,
     "timings_per_token": true,
-    "chat_template_kwargs": {"enable_thinking": false},
     "messages": message(material),
   });
+  body[thinking_off.0] = thinking_off.1;
   let started = std::time::Instant::now();
   // The node is waited for however long it reads: the call ends with its answer or its connection.
   let resp = reqwest::Client::new()
@@ -299,17 +378,7 @@ async fn answer(
   }
   let value: serde_json::Value =
     serde_json::from_str(&text).map_err(|e| format!("the answer did not read: {e}"))?;
-  let content = value
-    .get("choices")
-    .and_then(|c| c.get(0))
-    .and_then(|c| c.get("message"))
-    .and_then(|m| m.get("content"))
-    .and_then(|c| c.as_str())
-    .unwrap_or_default()
-    .to_string();
-  if content.trim().is_empty() {
-    return Err("the engine answered no words".into());
-  }
+  let content = whole_answer(&value, cap)?;
   let timings = value.get("timings");
   let prompt_tokens = timings
     .and_then(|t| t.get("prompt_n"))
@@ -327,6 +396,26 @@ async fn answer(
     first_token_ms: first,
     total_ms: started.elapsed().as_millis() as i64,
   })
+}
+
+/// The text of an answer that ended on its own, or why it is no answer: one cut at the token cap, ended for
+/// any other reason, or holding no words.
+fn whole_answer(value: &serde_json::Value, cap: i64) -> Result<String, String> {
+  let choice = value.get("choices").and_then(|c| c.get(0));
+  match choice.and_then(|c| c.get("finish_reason")).and_then(|f| f.as_str()) {
+    None | Some("stop") => {}
+    Some("length") => return Err(format!("the answer was cut at the {cap}-token cap")),
+    Some(other) => return Err(format!("the engine ended its answer on {other}")),
+  }
+  let content = choice
+    .and_then(|c| c.get("message"))
+    .and_then(|m| m.get("content"))
+    .and_then(|c| c.as_str())
+    .unwrap_or_default();
+  if content.trim().is_empty() {
+    return Err("the engine answered no words".into());
+  }
+  Ok(content.to_string())
 }
 
 /// The chains as `GET /modes` shows them: what each rung is and whether it stands now.
@@ -350,7 +439,9 @@ pub async fn modes(settings: &Settings) -> Vec<ModeInfo> {
             Err(e) => ("down".to_string(), Some(e.to_string())),
           }
         }
-        Rung::OpenRouter { key_file, .. } => {
+        Rung::OpenRouter {
+          address, key_file, ..
+        } => {
           let path = expand(key_file);
           match std::fs::read_to_string(&path).map(|k| k.trim().to_string()) {
             Ok(k) if k.is_empty() => {
@@ -358,7 +449,7 @@ pub async fn modes(settings: &Settings) -> Vec<ModeInfo> {
             }
             Ok(k) => {
               // The key's own record says whether it may spend: a key at a zero limit answers every call 403.
-              match key_limit(&k).await {
+              match key_limit(address, &k).await {
                 Ok(Some(limit)) if limit <= 0.0 => {
                   ("unconfigured".to_string(), Some("the key's spending limit is zero".to_string()))
                 }
@@ -391,9 +482,9 @@ pub async fn modes(settings: &Settings) -> Vec<ModeInfo> {
 }
 
 /// What OpenRouter says a key may spend, where it says anything.
-async fn key_limit(key: &str) -> Result<Option<f64>, String> {
+async fn key_limit(address: &str, key: &str) -> Result<Option<f64>, String> {
   let resp = reqwest::Client::new()
-    .get("https://openrouter.ai/api/v1/key")
+    .get(format!("{address}/key"))
     .bearer_auth(key)
     .send()
     .await

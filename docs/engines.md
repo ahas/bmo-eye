@@ -33,7 +33,9 @@ a picture.
 Two settings are not optional:
 
 - **Thinking is off:** `chat_template_kwargs.enable_thinking` is `false`. A node that leaves it on spends
-  its answer on the thought and returns no answer at all.
+  its answer on the thought and returns no answer at all. The field is the Lab-arena engine's own: OpenRouter
+  ignores it, and is asked with its own `reasoning` setting turned off instead (`docs/api.md`, 「The chain
+  report」).
 - **`max_tokens` is set:** the answer's length is the caller's to bound, and a document's transcription
   needs the room.
 
@@ -160,7 +162,7 @@ postgresql 14, rabbitmq, docker and containerd, the two `dl-` viewers, `matterpo
 | the Lab-arena nodes | `127.0.0.1:18101`–`18104`, the loopback tunnels the Lab-arena deployment keeps |
 | the nodes' keys | `~/.local/share/bmo-lab-arena/keys/n3.key` … `n6.key` |
 | n2's CPU | through the jake hub's control API at `127.0.0.1:8791` |
-| OpenRouter | `https://openrouter.ai/api/v1`, the key in `~/.local/share/bmo/data/env/openrouter.key` |
+| OpenRouter | `https://openrouter.ai/api/v1`, the settings' `hosted.openrouter.address`; the key in `~/.local/share/bmo/data/env/openrouter.key` |
 | Gemini | configured by no key on this machine |
 
 The service needs no GPU, no VRAM and no card turn. A look is answered by whichever node answers first,

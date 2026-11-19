@@ -11,7 +11,8 @@ bmo-lab-arena already runs on n3 to n6.
 | read | `bmo read` | documents: scans, PDFs, pages of text and tables (OCR) |
 
 Each mode asks its chain in order and answers from the first backend that works: the Lab-arena instance on n3,
-then the three Coder nodes, then OpenRouter, then the caller's own model where it takes the input natively.
+then the three Coder nodes, then OpenRouter, then the caller's own model where the caller asks for it and it
+takes the input natively.
 A video's speech is read on n2's CPU and the frames on a Lab-arena node; the vision unit takes no card.
 Every agent on the platform looks at an image or a video through bmo-eye first unless told otherwise.
 

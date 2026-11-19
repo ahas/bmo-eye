@@ -1,7 +1,7 @@
-//! The routes `docs/api.md` states, answered against a stand-in Lab-arena node: a look walks its chain, records
-//! what every rung did, and answers from the first that does.
+//! The routes `docs/api.md` states, answered against stand-in backends: a look walks its chain, records what
+//! every rung did, and answers from the first that does.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -9,46 +9,97 @@ use bmo_eye_client::*;
 use eye_server::config::Settings;
 use eye_server::routes::{App, app};
 use eye_server::store::Store;
+use serde_json::Value;
 
-/// A stand-in for one Lab-arena instance: it says it reads pictures and answers every chat with one sentence.
-async fn stand_in() -> (String, tokio::task::JoinHandle<()>) {
+/// What a stand-in answers a chat with, made from the request it was sent.
+type Reply = Arc<dyn Fn(&Value) -> Value + Send + Sync>;
+
+/// The requests a stand-in was sent, in order.
+type Received = Arc<Mutex<Vec<Value>>>;
+
+/// A stand-in for one chat backend, a Lab-arena instance or OpenRouter: it says it reads pictures, answers every
+/// chat with what `reply` makes of it, and keeps every request.
+async fn stand_in(reply: Reply) -> (String, Received) {
+  let received: Received = Arc::default();
+  let kept = received.clone();
+  let chat = post(move |Json(body): Json<Value>| {
+    let answer = reply(&body);
+    kept.lock().unwrap().push(body);
+    async move { Json(answer) }
+  });
   let router = Router::new()
     .route("/health", get(|| async { Json(serde_json::json!({"status": "ok", "images": true})) }))
-    .route(
-      "/v1/chat/completions",
-      post(|Json(body): Json<serde_json::Value>| async move {
-        let images = body["messages"][0]["content"].as_array().map(|c| c.iter().filter(|p| p["type"] == "image_url").count()).unwrap_or(0);
-        Json(serde_json::json!({
-          "choices": [{"message": {"content": format!("answer: {images} pictures")}}],
-          "timings": {"prompt_n": 7 + 300 * images, "predicted_n": 5, "prompt_ms": 120.0, "predicted_ms": 50.0}
-        }))
-      }),
-    );
+    .route("/v1/chat/completions", chat.clone())
+    .route("/chat/completions", chat);
   let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
   let addr = listener.local_addr().unwrap();
-  let handle = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
-  (format!("{}", addr), handle)
+  tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+  (format!("{addr}"), received)
 }
 
-async fn service() -> (String, String, std::path::PathBuf) {
-  let (node, handle) = stand_in().await;
-  std::mem::forget(handle);
+/// A reply that counts the pictures it was sent, as a Lab-arena timing block reports them.
+fn counting() -> Reply {
+  Arc::new(|body| {
+    let images = body["messages"][0]["content"]
+      .as_array()
+      .map(|c| c.iter().filter(|p| p["type"] == "image_url").count())
+      .unwrap_or(0);
+    serde_json::json!({
+      "choices": [{"message": {"content": format!("answer: {images} pictures")}}],
+      "timings": {"prompt_n": 7 + 300 * images, "predicted_n": 5, "prompt_ms": 120.0, "predicted_ms": 50.0}
+    })
+  })
+}
+
+/// A reply of one text, ended for the reason given.
+fn chat(content: &str, finish_reason: &str) -> Reply {
+  let answer = serde_json::json!({
+    "choices": [{"message": {"content": content}, "finish_reason": finish_reason}],
+  });
+  Arc::new(move |_| answer.clone())
+}
+
+/// A service whose chain is the stand-in Lab-arena nodes named, then a stand-in OpenRouter where one is given.
+struct Service {
+  base: String,
+  token: String,
+  dir: std::path::PathBuf,
+  openrouter: Option<Received>,
+}
+
+async fn service_with(nodes: Vec<(&str, Reply)>, openrouter: Option<Reply>) -> Service {
   static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
   let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
   let dir = std::env::temp_dir().join(format!("bmo-eye-test-{}-{n}", std::process::id()));
   let _ = std::fs::remove_dir_all(&dir);
   std::fs::create_dir_all(&dir).unwrap();
-  let settings = Settings::default();
-  let mut settings = settings;
-  settings.listen = "127.0.0.1:0".into();
-  settings.root = dir.to_string_lossy().to_string();
-  settings.lab-arena.nodes = vec![eye_server::config::Node {
-    name: "stand-in".into(),
-    address: node,
-    model: "qwen3.8-flash-next-iq3_s".into(),
-    key_file: "/dev/null".into(),
-  }];
-  settings.hosted.openrouter.enabled = false;
+  let mut settings = Settings {
+    listen: "127.0.0.1:0".into(),
+    root: dir.to_string_lossy().to_string(),
+    ..Settings::default()
+  };
+  settings.lab-arena.nodes = Vec::new();
+  for (name, reply) in nodes {
+    let (address, _) = stand_in(reply).await;
+    settings.lab-arena.nodes.push(eye_server::config::Node {
+      name: name.into(),
+      address,
+      model: "qwen3.8-flash-next-iq3_s".into(),
+      key_file: "/dev/null".into(),
+    });
+  }
+  settings.hosted.openrouter.enabled = openrouter.is_some();
+  let openrouter = match openrouter {
+    Some(reply) => {
+      let (address, received) = stand_in(reply).await;
+      let key = dir.join("openrouter.key");
+      std::fs::write(&key, "test-key").unwrap();
+      settings.hosted.openrouter.address = format!("http://{address}");
+      settings.hosted.openrouter.key_file = key.to_string_lossy().to_string();
+      Some(received)
+    }
+    None => None,
+  };
   settings.hosted.gemini.enabled = false;
   settings.speech.enabled = false;
   let store = Store::open(&dir).unwrap();
@@ -61,7 +112,45 @@ async fn service() -> (String, String, std::path::PathBuf) {
   let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
   let addr = listener.local_addr().unwrap();
   tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
-  (format!("http://{addr}"), token, dir)
+  Service {
+    base: format!("http://{addr}"),
+    token,
+    dir,
+    openrouter,
+  }
+}
+
+async fn service() -> (String, String, std::path::PathBuf) {
+  let s = service_with(vec![("stand-in", counting())], None).await;
+  (s.base, s.token, s.dir)
+}
+
+/// One `see` look at one picture, with the options given, held until it ends.
+async fn see(service: &Service, options: Options) -> Look {
+  let client = EyeClient::new(&service.base).with_token(&service.token);
+  let upload = client.upload(png(), "image/png").await.unwrap();
+  client
+    .create(
+      &NewLook {
+        mode: Mode::See,
+        question: "who is shown?".into(),
+        sources: vec![SourceRef::Upload {
+          upload_id: upload.id,
+        }],
+        options,
+        labels: Default::default(),
+      },
+      30_000,
+    )
+    .await
+    .unwrap()
+}
+
+fn json_format() -> Options {
+  Options {
+    format: "json".into(),
+    ..Options::default()
+  }
 }
 
 fn png() -> Vec<u8> {
@@ -166,4 +255,83 @@ async fn the_modes_answer_the_chain_that_stands() {
   assert_eq!(see.chain[0].state, "ready");
   assert_eq!(see.chain.last().unwrap().name, "caller");
   let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn an_answer_cut_at_its_token_cap_fails_its_rung_and_the_next_answers() {
+  let service = service_with(
+    vec![
+      ("first", chat("```json\n", "length")),
+      ("second", chat("```json\n{\"people\": []}\n```", "stop")),
+    ],
+    None,
+  )
+  .await;
+  let look = see(&service, json_format()).await;
+  assert_eq!(look.state, "done", "{:?}", look.error);
+  assert_eq!(look.chain[0].state, "failed");
+  assert_eq!(look.chain[0].reason.as_deref(), Some("the answer was cut at the 600-token cap"));
+  assert_eq!(look.backend.as_ref().unwrap().node.as_deref(), Some("second"));
+  let answer = look.answer.unwrap();
+  assert_eq!(answer.text, "{\"people\": []}");
+  assert_eq!(answer.format, "json");
+  let _ = std::fs::remove_dir_all(service.dir);
+}
+
+#[tokio::test]
+async fn a_json_look_whose_answer_holds_no_document_asks_the_next_backend() {
+  let service = service_with(
+    vec![
+      ("first", chat("The picture shows one adult.", "stop")),
+      ("second", chat("[{\"index\": 0}]", "stop")),
+    ],
+    None,
+  )
+  .await;
+  let look = see(&service, json_format()).await;
+  assert_eq!(look.state, "done", "{:?}", look.error);
+  assert_eq!(look.chain[0].reason.as_deref(), Some("the answer holds no JSON document"));
+  assert_eq!(look.answer.unwrap().text, "[{\"index\": 0}]");
+  let _ = std::fs::remove_dir_all(service.dir);
+}
+
+#[tokio::test]
+async fn the_openrouter_rung_asks_with_its_reasoning_off() {
+  let service = service_with(Vec::new(), Some(chat("One adult is shown.", "stop"))).await;
+  let look = see(&service, Options::default()).await;
+  assert_eq!(look.state, "done", "{:?}", look.error);
+  assert_eq!(look.backend.as_ref().unwrap().name, "openrouter");
+  let received = service.openrouter.as_ref().unwrap().lock().unwrap().clone();
+  assert_eq!(received[0]["reasoning"], serde_json::json!({"enabled": false}));
+  let _ = std::fs::remove_dir_all(service.dir);
+}
+
+#[tokio::test]
+async fn a_look_that_did_not_ask_for_the_hand_off_fails_with_every_rung_s_reason() {
+  let service = service_with(vec![("first", chat("", "stop"))], None).await;
+  let look = see(&service, Options::default()).await;
+  assert_eq!(look.state, "failed");
+  assert_eq!(
+    look.error.as_deref(),
+    Some(
+      "every backend of the chain failed: lab-arena first failed: the engine answered no words; caller skipped: the \
+       look did not ask for the caller's hand-off"
+    )
+  );
+  assert!(look.answer.is_none());
+  let _ = std::fs::remove_dir_all(service.dir);
+}
+
+#[tokio::test]
+async fn a_look_that_asks_for_the_hand_off_ends_on_the_caller() {
+  let service = service_with(vec![("first", chat("", "stop"))], None).await;
+  let options = Options {
+    hand_off: true,
+    ..Options::default()
+  };
+  let look = see(&service, options).await;
+  assert_eq!(look.state, "done", "{:?}", look.error);
+  assert_eq!(look.backend.as_ref().unwrap().name, "caller");
+  assert_eq!(look.chain.last().unwrap().state, "handed-off");
+  let _ = std::fs::remove_dir_all(service.dir);
 }

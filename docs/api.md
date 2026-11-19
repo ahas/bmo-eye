@@ -97,11 +97,21 @@ downloaded on the node with `yt-dlp` (`docs/modes.md`, 「watch: video」).
 `answer.text` is the answer in the language the question was asked in. `answer.format` is `text`,
 `markdown` or `json`, as the mode's options asked; `json` is a JSON document in the answer's text.
 
+- **A `json` answer is a JSON document and nothing else.** The backend's answer is read as JSON, either
+  whole or as the first fenced code block of it that reads, and the document alone is kept as
+  `answer.text`; an object and an array are both documents. An answer that holds no document that reads
+  is a `failed` rung, and the next backend is asked.
+- **An answer is whole or it is no answer.** A backend that ends its answer for any reason but its own end,
+  the token cap above all, has failed its rung, whatever format was asked.
+
 **States and the moves between them:**
 
 - A look is `queued` when it is taken in and `running` once a backend of its chain begins.
-- It ends `done` when a backend answers, `failed` when the chain ran out, and `stopped` when a caller
-  deleted it while it stood. `endedAt`, `error` and `backend` follow.
+- It ends `done` when a backend answers or hands the input to a caller that asked for it, `failed` when the
+  chain ran out, and `stopped` when a caller deleted it while it stood. `endedAt`, `error` and `backend`
+  follow.
+- **A look the chain ran out on names every rung's reason in its `error`,** each backend with its node and
+  whether it failed or was skipped, so a caller that reads only the error reads why.
 - No move goes back. `DELETE` on an ended look is not a move.
 
 **Errors of the routes:**
@@ -142,6 +152,7 @@ a media type outside the set in 「What each mode reads」 is 422 `unsupported-s
 | Option | Takes | Where unset |
 |---|---|---|
 | `format` | `text`, `markdown`, `json` | `text` |
+| `handOff` | `true` or `false`, whether the caller's own model takes the sources where no backend of the server answers (「Handing the input to the caller」); every mode takes it | `false` |
 | `detail` | `low`, `high` — how much of an image the backend is shown | `high` |
 | `fps` | 0.05–4, frames taken from each second of the video | `1` |
 | `maxFrames` | 1–1024, the ceiling on frames taken from one video | 128 |
@@ -172,22 +183,30 @@ is every backend that stood before the answer, in the order they were asked:
 | `ms` | How long that backend was tried |
 
 - **`skipped`** is a backend the look's sources or options cannot reach — an image in a chain step that
-  takes video, a hosted backend with no key configured, a `handed-off` caller that takes no such input.
-  Its `reason` names the rule.
+  takes video, a hosted backend with no key configured, a caller that did not ask for the hand-off or
+  takes no such input. Its `reason` names the rule.
 - **`failed`** is a backend that was tried and did not answer: the node refused or dropped the
-  connection or answered an error, the model refused the input, the hosted call failed. A backend that is
-  still reading is waited for, however long it takes. `reason` is the failure as a sentence, and the
-  next backend is asked.
+  connection or answered an error, the model refused the input, the hosted call failed, the answer had no
+  words, was cut before its end, or under `json` held no JSON document. A backend that is still reading is
+  waited for, however long it takes. `reason` is the failure as a sentence, and the next backend is asked.
+- **Every backend is asked with its thinking off,** each in its own request field: a Lab-arena engine through
+  its chat template, OpenRouter through its reasoning setting. A model that thinks spends the answer's
+  token cap on the thinking and is cut before it answers.
 - **`answered`** ends the chain; `backend` names that entry.
 - **`handed-off`** ends the chain with no answer of the server's: the last rung of a chain whose caller
-  takes the input natively. The look ends `done` with `answer` null and `backend.name` `caller`, and the
-  tool host or the agent reads the source itself (「Handing the input to the caller」).
+  asked for the hand-off and takes the input natively. The look ends `done` with `answer` null and
+  `backend.name` `caller`, and the tool host or the agent reads the source itself (「Handing the input to
+  the caller」).
 
 ## Handing the input to the caller
 
-The last rung of every chain is the caller's own model, and it is used when that model takes the input
-natively: an image by Claude, an image or a video by Codex where its transport carries it.
+The last rung of every chain is the caller's own model, and it is used only when the look's `handOff` says
+that model takes the input natively: an image by Claude, an image or a video by Codex where its transport
+carries it. The server cannot tell a caller's model from the request, so the caller states it.
 
+- **A look that does not ask for the hand-off is never handed off.** A service or a tool that has no model
+  of its own leaves `handOff` false; its chain's `caller` entry is `skipped`, and the look ends `failed` with
+  every rung's reason where nothing else answered.
 - **The look says so:** `backend.name` is `caller`, `answer` is null, and the chain's last entry is
   `handed-off` with the reason naming what the caller takes.
 - **The tool host answers with the material,** not with prose: the sources as the caller can read them —

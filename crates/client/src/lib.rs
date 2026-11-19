@@ -104,6 +104,10 @@ pub struct Options {
   pub pages: Option<Vec<i64>>,
   pub language: String,
   pub tables: bool,
+  /// Whether the caller's own model takes the sources where no backend of the server answers: a caller with
+  /// no model of its own leaves it false, and its look fails rather than ends handed off.
+  #[serde(default)]
+  pub hand_off: bool,
 }
 
 impl Default for Options {
@@ -119,6 +123,7 @@ impl Default for Options {
       pages: None,
       language: "ko".into(),
       tables: true,
+      hand_off: false,
     }
   }
 }

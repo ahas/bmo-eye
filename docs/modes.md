@@ -23,8 +23,11 @@ set that bmo-lab-arena already runs, and the vision unit itself holds no weights
   does not answer.
 - **A picture is 300 tokens and seconds of the node's CPU.** That is what bounds a look: a few images in a
   `see` or `read`, a handful of frames in a `watch`.
-- **The caller's own model is the last rung,** and only when it takes the input natively. That rung does not
-  answer: it hands the source to the caller, which looks itself.
+- **An answer cut before its end is no answer.** A backend that stops at its token cap, or answers no words,
+  or under `format: json` answers no JSON document, has failed its rung, and the next is asked.
+- **The caller's own model is the last rung,** and only when the look's `handOff` says it takes the input
+  natively. That rung does not answer: it hands the source to the caller, which looks itself. A look that
+  does not ask for it ends `failed` with every rung's reason where nothing else answered.
 - **A look is answered in the language it was asked in.** A document read by `read` is transcribed as it
   stands, in its own language.
 - **A mode refuses what it does not read** with 422 `unsupported-source`, naming the mode and the source.

@@ -521,7 +521,7 @@ async fn prepare_and_answer(app: &Arc<App>, look: &Look, mode: Mode) -> Outcome 
         images: vec![image],
         ..Material::default()
       };
-      let outcome = chain.walk(settings, mode, &one, &kinds).await;
+      let outcome = chain.walk(settings, mode, &look.options, &one, &kinds).await;
       match &outcome.answer {
         Some(a) => collected.push(Page {
           page: i as i64 + 1,
@@ -545,5 +545,5 @@ async fn prepare_and_answer(app: &Arc<App>, look: &Look, mode: Mode) -> Outcome 
     return outcome;
   }
   let chain = Chain::for_mode(settings, mode);
-  chain.walk(settings, mode, &material, &kinds).await
+  chain.walk(settings, mode, &look.options, &material, &kinds).await
 }

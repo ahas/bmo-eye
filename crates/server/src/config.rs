@@ -88,6 +88,9 @@ pub struct Hosted {
 pub struct OpenRouter {
   #[serde(default = "yes")]
   pub enabled: bool,
+  /// The API's base address, the chat and key routes below it.
+  #[serde(default = "default_openrouter_address")]
+  pub address: String,
   #[serde(default = "default_openrouter_key")]
   pub key_file: String,
   #[serde(default = "default_openrouter_model")]
@@ -96,6 +99,10 @@ pub struct OpenRouter {
 
 fn yes() -> bool {
   true
+}
+
+fn default_openrouter_address() -> String {
+  "https://openrouter.ai/api/v1".into()
 }
 
 fn default_openrouter_key() -> String {
@@ -110,6 +117,7 @@ impl Default for OpenRouter {
   fn default() -> Self {
     OpenRouter {
       enabled: true,
+      address: default_openrouter_address(),
       key_file: default_openrouter_key(),
       model: default_openrouter_model(),
     }

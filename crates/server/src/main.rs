@@ -280,6 +280,7 @@ async fn command(step: Eye) -> Result<(), String> {
           language: "ko".into(),
           tables: true,
           detail: None,
+          hand_off: false,
         },
         labels: Default::default(),
       };
@@ -360,6 +361,7 @@ async fn put(client: EyeClient, mode: Mode, p: Put, default_question: &str) -> R
       pages,
       language: p.language.clone(),
       tables: !p.no_tables,
+      hand_off: false,
     },
     labels: Default::default(),
   };
@@ -494,6 +496,7 @@ async fn tool(settings: Option<PathBuf>) {
       pages,
       language: "ko".into(),
       tables: true,
+      hand_off: false,
     },
     labels: Default::default(),
   };
