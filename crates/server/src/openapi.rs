@@ -214,7 +214,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       parameters: vec![key("lookId", "The look's id.", "path")],
       body: None,
       answer: (200, Some(json_of::<Look>(generator))),
-      codes: vec!["not-found"],
+      codes: vec!["not-found", "no-route"],
     },
     Route {
       method: "delete",
@@ -224,7 +224,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       parameters: vec![key("lookId", "The look's id.", "path")],
       body: None,
       answer: (204, None),
-      codes: vec!["not-found"],
+      codes: vec!["not-found", "no-route"],
     },
     Route {
       method: "post",
@@ -253,7 +253,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       ],
       body: None,
       answer: (200, Some(bytes("The upload's bytes, in the media type the upload was sent as."))),
-      codes: vec!["not-found"],
+      codes: vec!["not-found", "no-route"],
     },
     Route {
       method: "delete",
@@ -263,7 +263,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       parameters: vec![key("uploadId", "The upload's id.", "path")],
       body: None,
       answer: (204, None),
-      codes: vec!["not-found", "failed"],
+      codes: vec!["not-found", "no-route", "failed"],
     },
     Route {
       method: "get",

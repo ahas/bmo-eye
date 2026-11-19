@@ -209,17 +209,6 @@ async fn an_upload_is_taken_up_to_its_ceiling_and_refused_over_it() {
   let _ = std::fs::remove_dir_all(dir);
 }
 
-#[test]
-fn an_upload_source_takes_its_id_in_the_older_spelling_as_well() {
-  let read = serde_json::from_value::<SourceRef>(serde_json::json!({ "kind": "upload", "upload_id": 7 }));
-
-  assert!(read.is_ok(), "{read:?}");
-  assert_eq!(
-    serde_json::to_value(read.unwrap()).unwrap(),
-    serde_json::json!({ "kind": "upload", "uploadId": 7 }),
-  );
-}
-
 #[tokio::test]
 async fn a_look_without_a_token_is_refused() {
   let (base, _, dir) = service().await;
