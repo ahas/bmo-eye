@@ -69,6 +69,9 @@ look is a member of the service and keeps its record after it ends.
 | `url` | `url` | an `https` address the server fetches, or downloads with `yt-dlp` where it holds a video page |
 | `path` | `path` | an absolute path on the server's node, under the source root the settings name |
 
+An `upload` source's id is also taken as `upload_id`, the name bmo-paint sends; the server writes it as
+`uploadId` wherever it answers a source.
+
 `see` and `read` take `upload`, `url` and `path`. `watch` takes `url` and `path`, and an `upload` only
 where its bytes are a video file; a YouTube link and any other video page address are `url` sources,
 downloaded on the node with `yt-dlp` (`docs/modes.md`, 「watch: video」).

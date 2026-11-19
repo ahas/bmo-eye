@@ -58,11 +58,19 @@ impl State {
 
 /// How a source is named: bytes the caller sent here, an address, or a path on this machine.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "lowercase")]
+#[serde(tag = "kind", rename_all = "lowercase", rename_all_fields = "camelCase")]
 pub enum SourceRef {
-  Upload { upload_id: i64 },
-  Url { url: String },
-  Path { path: String },
+  Upload {
+    /// Also read as `upload_id`, the name bmo-paint sends.
+    #[serde(alias = "upload_id")]
+    upload_id: i64,
+  },
+  Url {
+    url: String,
+  },
+  Path {
+    path: String,
+  },
 }
 
 /// A source as the look read it.
@@ -400,5 +408,40 @@ impl EyeClient {
       return Err(format!("{} {}", status.as_u16(), why));
     }
     serde_json::from_str(&body).map_err(|e| format!("the answer did not read: {e}: {body}"))
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  fn upload_look(field: &str) -> String {
+    format!(
+      r#"{{"mode": "see", "question": "what is shown?", "sources": [{{"kind": "upload", "{field}": 7}}]}}"#
+    )
+  }
+
+  fn upload_id_of(body: &str) -> i64 {
+    let look: NewLook = serde_json::from_str(body).unwrap();
+    match look.sources.as_slice() {
+      [SourceRef::Upload { upload_id }] => *upload_id,
+      other => panic!("expected one upload source, read {other:?}"),
+    }
+  }
+
+  #[test]
+  fn an_upload_source_reads_its_documented_name() {
+    assert_eq!(upload_id_of(&upload_look("uploadId")), 7);
+  }
+
+  #[test]
+  fn an_upload_source_reads_the_name_bmo_paint_sends() {
+    assert_eq!(upload_id_of(&upload_look("upload_id")), 7);
+  }
+
+  #[test]
+  fn an_upload_source_is_written_by_its_documented_name() {
+    let written = serde_json::to_value(SourceRef::Upload { upload_id: 7 }).unwrap();
+    assert_eq!(written, serde_json::json!({"kind": "upload", "uploadId": 7}));
   }
 }
