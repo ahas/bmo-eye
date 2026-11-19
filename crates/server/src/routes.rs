@@ -223,14 +223,22 @@ async fn list_looks(
   }
 }
 
-async fn get_look(State(app): State<Arc<App>>, Path(id): Path<i64>) -> Response {
+async fn get_look(State(app): State<Arc<App>>, Path(word): Path<String>) -> Response {
+  let id = match word.parse::<i64>() {
+    Ok(id) => id,
+    Err(_) => return failure(StatusCode::NOT_FOUND, "no-route", format!("{word} is not a look id")),
+  };
   match app.store.look(id) {
     Ok(l) => Json(l).into_response(),
     Err(_) => failure(StatusCode::NOT_FOUND, "not-found", format!("no look {id}")),
   }
 }
 
-async fn delete_look(State(app): State<Arc<App>>, Path(id): Path<i64>) -> Response {
+async fn delete_look(State(app): State<Arc<App>>, Path(word): Path<String>) -> Response {
+  let id = match word.parse::<i64>() {
+    Ok(id) => id,
+    Err(_) => return failure(StatusCode::NOT_FOUND, "no-route", format!("{word} is not a look id")),
+  };
   match app.store.look(id) {
     Err(_) => failure(StatusCode::NOT_FOUND, "not-found", format!("no look {id}")),
     Ok(l) if l.state == "queued" || l.state == "running" => match app.store.stop(id) {
@@ -283,7 +291,11 @@ async fn create_upload(
   }
 }
 
-async fn upload_content(State(app): State<Arc<App>>, Path(id): Path<i64>) -> Response {
+async fn upload_content(State(app): State<Arc<App>>, Path(word): Path<String>) -> Response {
+  let id = match word.parse::<i64>() {
+    Ok(id) => id,
+    Err(_) => return failure(StatusCode::NOT_FOUND, "no-route", format!("{word} is not an upload id")),
+  };
   match app.store.upload_bytes(id) {
     Ok(bytes) => {
       let media = app
@@ -297,7 +309,11 @@ async fn upload_content(State(app): State<Arc<App>>, Path(id): Path<i64>) -> Res
   }
 }
 
-async fn delete_upload(State(app): State<Arc<App>>, Path(id): Path<i64>) -> Response {
+async fn delete_upload(State(app): State<Arc<App>>, Path(word): Path<String>) -> Response {
+  let id = match word.parse::<i64>() {
+    Ok(id) => id,
+    Err(_) => return failure(StatusCode::NOT_FOUND, "no-route", format!("{word} is not an upload id")),
+  };
   match app.store.upload(id) {
     Err(_) => failure(StatusCode::NOT_FOUND, "not-found", format!("no upload {id}")),
     Ok(_) => match app.store.delete_upload(id) {

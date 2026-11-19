@@ -224,7 +224,7 @@ async fn a_body_that_does_not_read_answers_bad_request_with_a_code_and_an_error(
   let answer = reqwest::Client::new()
     .request(reqwest::Method::POST, format!("{base}/looks"))
     .header("content-type", "application/json")
-    .bearer_auth(token)
+    .bearer_auth(&token)
     .body(r#"{"mode": "see", "question": "what is shown?", "sources": [{"kind": "upload"}]}"#)
     .send()
     .await
@@ -242,7 +242,7 @@ async fn a_query_that_does_not_read_answers_bad_request_with_a_code_and_an_error
   let (base, token, dir) = service().await;
   let answer = reqwest::Client::new()
     .request(reqwest::Method::GET, format!("{base}/looks?limit=not-a-number"))
-    .bearer_auth(token)
+    .bearer_auth(&token)
     .send()
     .await
     .unwrap();
@@ -250,6 +250,57 @@ async fn a_query_that_does_not_read_answers_bad_request_with_a_code_and_an_error
   let why = serde_json::from_str::<Failure>(&answer.text().await.unwrap()).unwrap();
   assert_eq!(why.code, "bad-request", "{why:?}");
   assert!(why.error.contains("limit"), "{why:?}");
+  let _ = std::fs::remove_dir_all(dir);
+}
+
+/// A route's refusal, read the way the document says every failure stands: at the status given,
+/// with the code given and an error that names the word the route was handed.
+async fn refused(answer: reqwest::Response, status: u16, code: &str, word: &str) {
+  assert_eq!(answer.status().as_u16(), status, "{answer:?}");
+  let why = serde_json::from_str::<Failure>(&answer.text().await.unwrap()).unwrap();
+  assert_eq!(why.code, code, "{why:?}");
+  assert!(why.error.contains(word), "{why:?}");
+}
+
+#[tokio::test]
+async fn a_look_id_that_is_not_a_number_answers_no_route() {
+  let (base, token, dir) = service().await;
+  let http = reqwest::Client::new();
+  let answer = http
+    .request(reqwest::Method::GET, format!("{base}/looks/not-a-number"))
+    .bearer_auth(&token)
+    .send()
+    .await
+    .unwrap();
+  refused(answer, 404, "no-route", "not-a-number").await;
+  let answer = http
+    .request(reqwest::Method::DELETE, format!("{base}/looks/not-a-number"))
+    .bearer_auth(&token)
+    .send()
+    .await
+    .unwrap();
+  refused(answer, 404, "no-route", "not-a-number").await;
+  let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn an_upload_id_that_is_not_a_number_answers_no_route() {
+  let (base, token, dir) = service().await;
+  let http = reqwest::Client::new();
+  let answer = http
+    .request(reqwest::Method::GET, format!("{base}/uploads/not-a-number/content"))
+    .bearer_auth(&token)
+    .send()
+    .await
+    .unwrap();
+  refused(answer, 404, "no-route", "not-a-number").await;
+  let answer = http
+    .request(reqwest::Method::DELETE, format!("{base}/uploads/not-a-number"))
+    .bearer_auth(&token)
+    .send()
+    .await
+    .unwrap();
+  refused(answer, 404, "no-route", "not-a-number").await;
   let _ = std::fs::remove_dir_all(dir);
 }
 
