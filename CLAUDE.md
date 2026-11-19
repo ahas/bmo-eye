@@ -10,6 +10,9 @@ Archive documents and reports for the owner are written in Korean; the documents
 
 - The document comes before the code: `docs/` is canonical, and a change that would make a document wrong
   repairs the document first. No change history, no code quotations, no file:line coordinates in prose.
+- `docs/openapi.json` is generated from the types the routes take and answer, and the suite holds the kept
+  document to them: a change to a route or a body writes it again with
+  `cargo run -p eye-server --example openapi > docs/openapi.json`.
 - The server is written in Rust and holds no model, no weight and no card. Pictures are read by the Lab-arena
   engines on n3 to n6 (`docs/engines.md`); nothing of this unit is installed as a model on a node.
 - The Lab-arena nodes are reached at `127.0.0.1:18101`–`18104` from main-host, with their keys under

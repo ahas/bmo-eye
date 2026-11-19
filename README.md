@@ -24,11 +24,11 @@ owner are written in Korean; `docs/` stays in English.
 
 | Folder | Holds |
 |---|---|
-| `crates/` | The Rust workspace: `client` (the types and the HTTP client) and `server` (the routes, the store, the chain and the `bmo-eye` binary) |
-| `docs/` | The API, the modes and their chains, the engines, the plan, and the drawing-reference design |
+| `crates/` | The Rust workspace: `client` (the types and the HTTP client) and `server` (the routes, the store, the chain, the `bmo-eye` binary and the module that writes the OpenAPI document, printed by its `openapi` example) |
+| `docs/` | The API and the OpenAPI document it generates, the modes and their chains, the engines, the plan, and the drawing-reference design |
 | `scripts/` | The measurement harness stage 1's numbers were taken with |
 | `src/` | The repository's own package, which holds no code |
-| `tests/` | The tests that walk the routes against a stand-in Lab-arena node |
+| `tests/` | The tests that walk the routes against a stand-in Lab-arena node, read the media a look is made of and hold the kept OpenAPI document to what the code writes |
 | `deploy/` | The user unit the deployment restarts and watches |
 
 At the root stand the Cargo workspace, the tool host's manifest `tool.toml` with the schemas its entries name

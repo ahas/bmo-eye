@@ -11,6 +11,7 @@ use axum::{Json, Router};
 use bmo_eye_client::State as LookState;
 use bmo_eye_client::*;
 use futures_util::stream::Stream;
+use schemars::JsonSchema;
 use serde::Deserialize;
 use sha2::Digest as _;
 
@@ -89,9 +90,9 @@ async fn health(State(_app): State<Arc<App>>) -> Response {
   .into_response()
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-struct LookQuery {
+pub struct LookQuery {
   wait_ms: Option<i64>,
 }
 
@@ -199,9 +200,9 @@ fn fits(mode: Mode, media: &str) -> Result<(), String> {
   if ok { Ok(()) } else { Err(format!("{media} is not what {} reads", mode.as_str())) }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-struct ListQuery {
+pub struct ListQuery {
   after: Option<i64>,
   limit: Option<i64>,
   mode: Option<String>,
@@ -327,8 +328,8 @@ async fn get_modes(State(app): State<Arc<App>>) -> Response {
   Json(modes(&app.settings).await).into_response()
 }
 
-#[derive(Debug, Deserialize)]
-struct EventQuery {
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct EventQuery {
   after: Option<i64>,
 }
 

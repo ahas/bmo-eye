@@ -9,7 +9,7 @@ read the pictures. This document states what stands now and what is still to bui
 
 | Part | Where it stands |
 |---|---|
-| the API | `docs/api.md`, served by `bmo-eye` on main-host at `127.0.0.1:7435` |
+| the API | `docs/api.md` and the `docs/openapi.json` its own types generate, served by `bmo-eye` on main-host at `127.0.0.1:7435` |
 | the modes and their chains | `docs/modes.md`, one chain per mode over the same four Lab-arena instances |
 | the engines it looks through | `docs/engines.md`: the Qwen3.8-Flash-Next set on n3 to n6, the picture reader, and n2's CPU for speech |
 | the server | `crates/server`, the binary `bmo-eye`, with the store, the chain and the four backends |

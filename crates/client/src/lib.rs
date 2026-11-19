@@ -3,10 +3,11 @@
 //! One shape serves every mode and every backend: a look is a question put to a source set, and its answer
 //! records which backend of the chain answered and what every rung before it did.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// One mode's name.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum Mode {
   See,
@@ -34,7 +35,7 @@ impl Mode {
 }
 
 /// A look's place in its life.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum State {
   Queued,
@@ -57,7 +58,7 @@ impl State {
 }
 
 /// How a source is named: bytes the caller sent here, an address, or a path on this machine.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "lowercase", rename_all_fields = "camelCase")]
 pub enum SourceRef {
   Upload {
@@ -74,7 +75,7 @@ pub enum SourceRef {
 }
 
 /// A source as the look read it.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Source {
   pub kind: String,
@@ -96,7 +97,7 @@ pub struct Source {
 }
 
 /// The mode's own options, with the defaults filled in.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Options {
   pub format: String,
@@ -137,7 +138,7 @@ impl Default for Options {
 }
 
 /// A backend of a chain, as the look names it.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BackendRef {
   pub name: String,
@@ -148,7 +149,7 @@ pub struct BackendRef {
 }
 
 /// One rung of the chain a look walked.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ChainEntry {
   pub backend: String,
@@ -163,7 +164,7 @@ pub struct ChainEntry {
 }
 
 /// The answer, whole.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Answer {
   pub text: String,
@@ -171,7 +172,7 @@ pub struct Answer {
 }
 
 /// What was said in a video, as the speech model read it.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Speech {
   pub text: String,
@@ -181,7 +182,7 @@ pub struct Speech {
 }
 
 /// What was taken from a video.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Frames {
   pub count: i64,
@@ -191,7 +192,7 @@ pub struct Frames {
 }
 
 /// One page of a document as `read` answered it.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Page {
   pub page: i64,
@@ -199,7 +200,7 @@ pub struct Page {
 }
 
 /// What the answer cost.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Usage {
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -213,7 +214,7 @@ pub struct Usage {
 }
 
 /// One look.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Look {
   pub id: i64,
@@ -245,14 +246,14 @@ pub struct Look {
 }
 
 /// A page of looks.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct LookPage {
   pub items: Vec<Look>,
   pub more: bool,
 }
 
 /// A look taken in.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct NewLook {
   pub mode: Mode,
@@ -265,7 +266,7 @@ pub struct NewLook {
 }
 
 /// Bytes a caller sent here.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Upload {
   pub id: i64,
@@ -276,7 +277,7 @@ pub struct Upload {
 }
 
 /// One rung of a mode's chain, as `GET /modes` answers it.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ChainRung {
   pub name: String,
@@ -290,7 +291,7 @@ pub struct ChainRung {
 }
 
 /// One mode and the chain it asks.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ModeInfo {
   pub mode: String,
@@ -298,7 +299,7 @@ pub struct ModeInfo {
 }
 
 /// The service's health.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Health {
   pub ready: bool,
@@ -307,7 +308,7 @@ pub struct Health {
 }
 
 /// A failure's body.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct Failure {
   pub code: String,
   pub error: String,

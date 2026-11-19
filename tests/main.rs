@@ -3,3 +3,4 @@
 
 mod api;
 mod media;
+mod openapi;

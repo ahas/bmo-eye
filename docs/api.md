@@ -1,9 +1,16 @@
 # bmo-eye API
 
 This document and `docs/openapi.json` are the contract of the vision unit's server: one request and one
-answer shape for all three modes and for every backend of their chains. It states version `0.1.0-rev.1`,
-the version the server carries at its first release; the server is stage 2 of `docs/plan.md` and nothing
-serves these routes yet.
+answer shape for all three modes and for every backend of their chains. The OpenAPI document is written
+from the types the routes take and answer, and a test holds the copy kept beside this document to what
+the code writes; a change to a route or a body writes it again with
+`cargo run -p eye-server --example openapi > docs/openapi.json`.
+
+The version is the repository's one, `0.1.0-rev.1`, kept in the Cargo manifests, in the health answer and
+in the OpenAPI document; it moves only at a release the owner declares, as bmo-chat's
+`docs/conventions.md` 「Versions」 states. The server is built and deployed: it answers these routes on
+the operations machine at `127.0.0.1:7435`, and what of the plan is still to build stands in `docs/plan.md`,
+「What is still to build」.
 
 The server runs on the operations machine and holds no model and no card (`docs/engines.md`). It calls the
 Lab-arena engines on n3 to n6 and the hosted backends itself, and reads a video's speech on n2's CPU. A caller
@@ -127,6 +134,7 @@ downloaded on the node with `yt-dlp` (`docs/modes.md`, 「watch: video」).
 | 404 | `no-route` | No route answers this method and path |
 | 413 | `too-large` | An upload over the ceiling, or more sources than the route takes |
 | 422 | `unsupported-source` | The mode takes no such source: an image in `watch`, a document that is not a PDF or an image in `read`, a `path` outside the source root |
+| 500 | `failed` | A store call behind the route failed; `error` is the store's sentence |
 | 503 | `not-ready` | The server is starting and cannot take a look yet; `Retry-After` says when to ask again |
 
 ## Uploads
@@ -236,9 +244,13 @@ carries it. The server cannot tell a caller's model from the request, so the cal
 ## Events
 
 The service serves one stream, `GET /events`, and no other route streams. Events name a look and its
-change: `look.created`, `look.running`, `look.done`, `look.failed`, `look.stopped`. A reader narrows with
-`kinds` and resumes with `Last-Event-ID`. The service keeps the last 4,096 events; a resume from before
-them is 410 `gone`.
+change: `look.created`, `look.running`, `look.done`, `look.failed`, `look.stopped`.
+
+- **A reader resumes** with the id of the last event it read as the query `after`, and the stream answers
+  at most 200 events to one pull before it waits for the next. The route takes no narrowing: a reader that
+  wants one kind reads the stream and drops the rest.
+- **The service keeps every event it has written** in its store, so a resume from any id it holds stands
+  and nothing is answered `gone`.
 
 **The API streams no answer tokens.** A look's answer is whole when its state is `done`; a caller that
 wants the text before then has none to read, and the tool host shows the caller which backend is being

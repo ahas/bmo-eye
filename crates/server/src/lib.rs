@@ -4,6 +4,7 @@
 pub mod chain;
 pub mod config;
 pub mod media;
+pub mod openapi;
 pub mod routes;
 pub mod store;
 pub mod tool;
