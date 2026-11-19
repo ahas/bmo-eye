@@ -356,7 +356,8 @@ async fn tool_see(service: &Service, labels: Value) -> (Value, String) {
 #[tokio::test]
 async fn an_agent_s_call_no_backend_answers_is_answered_with_the_picture_and_the_question() {
   let service = service_with(vec![("first", chat("", "stop"))], None).await;
-  let (answer, path) = tool_see(&service, serde_json::json!({"line": "chat"})).await;
+  let (answer, path) =
+    tool_see(&service, serde_json::json!({"line": "chat", "reads": ["image", "pdf"]})).await;
   assert_eq!(answer["isError"], false, "{answer}");
   assert_eq!(answer["structuredContent"]["backend"]["name"], "caller");
   let text = answer["content"][0]["text"].as_str().unwrap();
@@ -388,10 +389,24 @@ async fn a_shell_s_call_no_backend_answers_is_refused_with_every_rung_s_reason()
 }
 
 #[test]
-fn only_an_agent_s_see_and_read_ask_for_the_hand_off() {
+fn the_hand_off_is_asked_where_the_record_reads_the_mode_s_material() {
   use eye_server::tool::asks_hand_off;
-  let agent = serde_json::json!({"labels": {"line": "search"}});
-  assert!(asks_hand_off(Mode::Read, &agent));
-  assert!(!asks_hand_off(Mode::Watch, &agent));
+  let pictures = serde_json::json!({"labels": {"line": "worker", "reads": ["image"]}});
+  let documents = serde_json::json!({"labels": {"line": "worker", "reads": ["pdf"]}});
+  let videos = serde_json::json!({"labels": {"line": "worker", "reads": ["video"]}});
+  assert!(asks_hand_off(Mode::See, &pictures));
+  assert!(asks_hand_off(Mode::Read, &pictures));
+  assert!(!asks_hand_off(Mode::Watch, &pictures), "no harness reads a video in a tool's answer");
+  assert!(asks_hand_off(Mode::Read, &documents));
+  assert!(
+    !asks_hand_off(Mode::See, &documents),
+    "a see look hands a picture, which this model cannot read"
+  );
+  assert!(!asks_hand_off(Mode::See, &videos), "a model that reads only video reads no picture");
+  assert!(!asks_hand_off(Mode::Read, &videos));
+  assert!(
+    !asks_hand_off(Mode::See, &serde_json::json!({"labels": {"line": "worker"}})),
+    "a record naming no media is a run on a text-only model"
+  );
   assert!(!asks_hand_off(Mode::See, &serde_json::json!({"holderName": "schedule"})));
 }

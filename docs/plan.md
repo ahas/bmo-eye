@@ -48,9 +48,11 @@ answer is the look as `eye/see`, `eye/read` and `eye/watch` carry it.
 | `eye/read` | `path`, `question`, `pages` | the look: the transcription page by page |
 | `eye/watch` | `path`, `question`, `fps`, `maxFrames`, `speech` | the look: the answer, its frames and its speech |
 
-An agent's run asks `eye/see` and `eye/read` for the hand-off, and a look no backend answers comes back to it as
-its material, the question and every rung's reason, so the agent looks itself; a call from a shell or a schedule,
-and every `eye/watch` call, answers such a look as an error (`docs/api.md`, 「Handing the input to the caller」).
+A run whose session record says its model reads the mode's material asks `eye/see` and `eye/read` for the
+hand-off, and a look no backend answers comes back to it as its material, the question and every rung's
+reason, so the agent looks itself; a call from a shell or a schedule, one from a run on a text-only model,
+and every `eye/watch` call, answers such a look as an error (`docs/api.md`, 「Handing the input to the
+caller」).
 
 The deployment places the binary, the manifest and the schemas with the tool host once the service answers
 (`bmo pocket put .tool --placed --service bmo-eye`), so the entries stand from the flip onward and an agent

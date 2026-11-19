@@ -211,13 +211,17 @@ carries it. The server cannot tell a caller's model from the request, so the cal
   every rung's reason where nothing else answered.
 - **The look says so:** `backend.name` is `caller`, `answer` is null, and the chain's last entry is
   `handed-off` with the reason naming what the caller takes.
-- **The eye tool asks for the hand-off for an agent's run, in `see` and `read`.** A call of the tool carries
-  the tool host's session record, and a record whose labels name a run line other than `shell` is an agent's
-  run, whose harness opens a picture and a PDF itself; the tool sets `handOff` true for it. A person's
-  `bmo use` (line `shell`), a scheduled call (no line) and every `watch` look leave it false, since no harness
-  here reads a video in a tool's answer. A service that asks the API itself, bmo-paint among them, states its
-  own options and leaves it false. The record does not say which model a run is routed to, so a run whose
-  model reads no picture is handed one all the same and answers that it cannot see it.
+- **The eye tool asks for the hand-off where the caller's record says its model reads the mode's
+  material.** A call of the tool carries the tool host's session record, whose issuer writes a `reads`
+  label naming the media the run's model reads natively — words of `image`, `pdf` and `video`, judged by
+  bmo-agency from the road the run goes out on (`docs/provider-order.md`, 「The media a model reads」). The
+  tool sets `handOff` true for a `see` call whose record reads `image` and a `read` call whose record reads
+  `image` or `pdf`, since the handed answer carries a picture where the source is one and names the document
+  for the caller's own harness where it is one. A record with no `reads` label — a person's `bmo use`, a
+  scheduled call, a run routed to a model that reads no picture — and every `watch` look leave it false:
+  the first hands its answer to a reader that cannot open the material, and no harness here reads a video in
+  a tool's answer. A service that asks the API itself, bmo-paint among them, states its own options and
+  leaves it false.
 - **The eye tool answers a handed-off look with the material,** not with prose. Its text says that no
   backend answered, gives the question, names each source the way the agent opens it — a path on this
   machine with its media type, or an address — and ends with every rung's reason. A picture at a path whose

@@ -15,9 +15,6 @@ const HOLD_MS: i64 = 600_000;
 /// How long the call waits between two reads of a look the hold did not see end.
 const POLL: std::time::Duration = std::time::Duration::from_millis(500);
 
-/// The run line the issuer gives a person's own `bmo use`: a shell, with no model to hand a look to.
-const SHELL_LINE: &str = "shell";
-
 /// The media types a model's API takes as a picture.
 const PICTURE_TYPES: [&str; 4] = ["image/png", "image/jpeg", "image/gif", "image/webp"];
 
@@ -59,14 +56,22 @@ pub fn answer_text(look: &Look) -> String {
   }
 }
 
-/// Whether a call of `mode` under this session record asks for the hand-off: an agent's run, whose record's
-/// labels name a run line other than the shell's, in a mode whose material its harness opens itself. No
-/// harness reads a video in a tool's answer, so `watch` never asks.
+/// Whether a call of `mode` under this session record asks for the hand-off: the record's `reads` label —
+/// the media the run's model reads natively, as its issuer judged them from the road the run goes out on —
+/// naming the media the mode's material arrives in. A record with no label is a run that reads no media, and
+/// no harness reads a video in a tool's answer, so `watch` never asks.
 pub fn asks_hand_off(mode: Mode, session: &Value) -> bool {
-  let agent = session["labels"]["line"]
-    .as_str()
-    .is_some_and(|line| !line.is_empty() && line != SHELL_LINE);
-  agent && matches!(mode, Mode::See | Mode::Read)
+  let reads = |kind: &str| {
+    session["labels"]["reads"]
+      .as_array()
+      .is_some_and(|media| media.iter().any(|one| one.as_str() == Some(kind)))
+  };
+
+  match mode {
+    Mode::See => reads("image"),
+    Mode::Read => reads("image") || reads("pdf"),
+    Mode::Watch => false,
+  }
 }
 
 /// The tool result of one call, as the tool host hands it: the entry, its arguments and the session record.
