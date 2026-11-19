@@ -206,6 +206,19 @@ impl Store {
     Ok(n > 0)
   }
 
+  /// Whether the service can read its store now: its database answers and its upload folder can be listed.
+  pub fn readable(&self) -> Result<(), String> {
+    let conn = self.lock();
+    conn
+      .prepare("select 1")
+      .map(|_| ())
+      .map_err(|e| format!("its database does not answer: {e}"))?;
+    let folder = self.upload_dir();
+    std::fs::read_dir(&folder)
+      .map(|_| ())
+      .map_err(|e| format!("its upload folder {} cannot be read: {e}", folder.display()))
+  }
+
   pub fn create_upload(&self, media_type: &str, bytes: &[u8], sha256: &str) -> Result<Upload, String> {
     let created = now_ms();
     let conn = self.lock();
@@ -248,8 +261,12 @@ impl Store {
       .ok_or_else(|| "not-found".to_string())
   }
 
+  pub fn upload_dir(&self) -> PathBuf {
+    self.root.join("uploads")
+  }
+
   pub fn upload_path(&self, id: i64) -> PathBuf {
-    self.root.join("uploads").join(format!("{id}.bin"))
+    self.upload_dir().join(format!("{id}.bin"))
   }
 
   pub fn upload_bytes(&self, id: i64) -> Result<Vec<u8>, String> {

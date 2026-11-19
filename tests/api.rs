@@ -304,6 +304,117 @@ async fn an_upload_id_that_is_not_a_number_answers_no_route() {
   let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Upload bytes where each one names its position, so a span read back can be checked against it.
+fn marked(count: usize) -> Vec<u8> {
+  (0..count).map(|at| at as u8).collect()
+}
+
+/// One read of an upload's bytes under the `Range` header given.
+async fn read_span(base: &str, token: &str, upload_id: i64, span: &str) -> reqwest::Response {
+  reqwest::Client::new()
+    .request(reqwest::Method::GET, format!("{base}/uploads/{upload_id}/content"))
+    .bearer_auth(token)
+    .header("range", span)
+    .send()
+    .await
+    .unwrap()
+}
+
+/// An answer carries a header with the value given.
+fn carries(answer: &reqwest::Response, name: &str, value: &str) -> bool {
+  answer.headers().get(name).is_some_and(|held| held.as_bytes() == value.as_bytes())
+}
+
+#[tokio::test]
+async fn a_range_header_answers_206_with_that_span() {
+  let (base, token, dir) = service().await;
+  let client = EyeClient::new(&base).with_token(&token);
+  let whole = marked(300);
+  let upload = client.upload(whole.clone(), "image/png").await.unwrap();
+  let part = read_span(&base, &token, upload.id, "bytes=4-11").await;
+  assert_eq!(part.status().as_u16(), 206, "{part:?}");
+  assert!(carries(&part, "content-range", "bytes 4-11/300"), "{part:?}");
+  assert!(carries(&part, "accept-ranges", "bytes"), "{part:?}");
+  assert_eq!(part.bytes().await.unwrap().to_vec(), whole[4..12].to_vec());
+  let rest = read_span(&base, &token, upload.id, "bytes=290-").await;
+  assert_eq!(rest.status().as_u16(), 206, "{rest:?}");
+  assert!(carries(&rest, "content-range", "bytes 290-299/300"), "{rest:?}");
+  assert_eq!(rest.bytes().await.unwrap().to_vec(), whole[290..].to_vec());
+  let past = read_span(&base, &token, upload.id, "bytes=1000-2000").await;
+  assert_eq!(past.status().as_u16(), 200, "{past:?}");
+  assert_eq!(past.bytes().await.unwrap().to_vec(), whole);
+  let unread = read_span(&base, &token, upload.id, "not-a-range").await;
+  assert_eq!(unread.status().as_u16(), 200, "{unread:?}");
+  assert_eq!(unread.bytes().await.unwrap().to_vec(), whole);
+  let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn a_look_with_more_sources_than_its_mode_takes_answers_too_large() {
+  let (base, token, dir) = service().await;
+  let client = EyeClient::new(&base).with_token(&token);
+  let one = client.upload(png(), "image/png").await.unwrap();
+  let two = client.upload(png(), "image/png").await.unwrap();
+  let pair = vec![SourceRef::Upload { upload_id: one.id }, SourceRef::Upload { upload_id: two.id }];
+  let err = client
+    .create(
+      &NewLook {
+        mode: Mode::Watch,
+        question: "what is this?".into(),
+        sources: pair,
+        options: Options::default(),
+        labels: Default::default(),
+      },
+      0,
+    )
+    .await
+    .unwrap_err();
+  assert!(err.contains("413 too-large"), "{err}");
+  assert!(err.contains("watch takes at most 1"), "{err}");
+  let many = (0..17).map(|_| SourceRef::Upload { upload_id: one.id }).collect();
+  let err = client
+    .create(
+      &NewLook {
+        mode: Mode::See,
+        question: "what is shown?".into(),
+        sources: many,
+        options: Options::default(),
+        labels: Default::default(),
+      },
+      0,
+    )
+    .await
+    .unwrap_err();
+  assert!(err.contains("413 too-large"), "{err}");
+  assert!(err.contains("see takes at most 16"), "{err}");
+  let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn a_question_over_its_ceiling_answers_bad_request() {
+  let (base, token, dir) = service().await;
+  let client = EyeClient::new(&base).with_token(&token);
+  let upload = client.upload(png(), "image/png").await.unwrap();
+  let err = client
+    .create(
+      &NewLook {
+        mode: Mode::See,
+        question: "a".repeat(8001),
+        sources: vec![SourceRef::Upload {
+          upload_id: upload.id,
+        }],
+        options: Options::default(),
+        labels: Default::default(),
+      },
+      0,
+    )
+    .await
+    .unwrap_err();
+  assert!(err.contains("400 bad-request"), "{err}");
+  assert!(err.contains("characters"), "{err}");
+  let _ = std::fs::remove_dir_all(dir);
+}
+
 #[tokio::test]
 async fn a_mode_refuses_what_it_does_not_read() {
   let (base, token, dir) = service().await;
@@ -341,6 +452,92 @@ async fn the_modes_answer_the_chain_that_stands() {
   assert_eq!(see.chain[0].name, "lab-arena");
   assert_eq!(see.chain[0].state, "ready");
   assert_eq!(see.chain.last().unwrap().name, "caller");
+  let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The store's upload folder made unreadable, so the store cannot be read again.
+#[cfg(unix)]
+fn close_store(dir: &std::path::Path) {
+  use std::os::unix::fs::PermissionsExt as _;
+  std::fs::set_permissions(dir.join("uploads"), std::fs::Permissions::from_mode(0o000)).unwrap();
+}
+
+/// Puts the store's upload folder back, so the test can let its own folder go.
+#[cfg(unix)]
+fn open_store(dir: &std::path::Path) {
+  use std::os::unix::fs::PermissionsExt as _;
+  std::fs::set_permissions(dir.join("uploads"), std::fs::Permissions::from_mode(0o700)).unwrap();
+}
+
+#[tokio::test]
+async fn the_health_answer_reports_the_service_that_stands() {
+  let (base, token, dir) = service().await;
+  let client = EyeClient::new(&base).with_token(&token);
+  let health = client.health().await.unwrap();
+  assert!(health.ready, "a stand-in node that reads pictures leaves the service standing");
+  assert!(health.reason.is_none(), "{health:?}");
+  assert_eq!(health.version, env!("CARGO_PKG_VERSION"), "{health:?}");
+  let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn a_service_whose_chains_hold_no_backend_answers_not_ready_and_still_takes_the_look() {
+  let service = service_with(Vec::new(), None).await;
+  let client = EyeClient::new(&service.base).with_token(&service.token);
+  let health = client.health().await.unwrap();
+  assert!(!health.ready, "{health:?}");
+  assert!(
+    health
+      .reason
+      .as_deref()
+      .unwrap_or_default()
+      .contains("no backend of any chain could be reached"),
+    "{health:?}",
+  );
+  let upload = client.upload(png(), "image/png").await.unwrap();
+  let look = client
+    .create(
+      &NewLook {
+        mode: Mode::See,
+        question: "what is shown?".into(),
+        sources: vec![SourceRef::Upload {
+          upload_id: upload.id,
+        }],
+        options: Options::default(),
+        labels: Default::default(),
+      },
+      0,
+    )
+    .await
+    .unwrap();
+  assert!(look.id > 0, "the look stands in the service: {look:?}");
+  let _ = std::fs::remove_dir_all(service.dir);
+}
+
+#[tokio::test]
+async fn a_store_that_cannot_be_read_refuses_a_look_with_the_wait() {
+  let (base, token, dir) = service().await;
+  close_store(&dir);
+  let client = EyeClient::new(&base).with_token(&token);
+  let health = client.health().await.unwrap();
+  assert!(!health.ready, "{health:?}");
+  assert!(
+    health.reason.as_deref().unwrap_or_default().contains("upload folder"),
+    "the store's own sentence says where it cannot be read: {health:?}",
+  );
+  let answer = reqwest::Client::new()
+    .request(reqwest::Method::POST, format!("{base}/looks"))
+    .bearer_auth(&token)
+    .header("content-type", "application/json")
+    .body(
+      r#"{"mode": "see", "question": "what is shown?", "sources": [{"kind": "upload", "uploadId": 1}]}"#,
+    )
+    .send()
+    .await
+    .unwrap();
+  assert!(carries(&answer, "retry-after", "5"), "{answer:?}");
+  refused(answer, 503, "not-ready", "upload folder").await;
+  open_store(&dir);
   let _ = std::fs::remove_dir_all(dir);
 }
 

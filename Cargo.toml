@@ -15,6 +15,7 @@ axum = { version = "0.8.9", features = ["macros", "multipart", "ws"] }
 base64 = "0.22.1"
 clap = { version = "4.5.40", features = ["derive", "env"] }
 futures-util = "0.3.34"
+headers = "0.4.2"
 pulldown-cmark = { version = "0.13.0", default-features = false }
 reqwest = { version = "0.13.5", features = ["json", "query", "stream"] }
 # The JSON Schemas of the bodies the routes take and answer, and the OpenAPI document written from them.

@@ -1,9 +1,10 @@
 //! The routes `docs/api.md` states, and the work behind a look.
 
+use std::ops::Bound;
 use std::sync::Arc;
 
 use axum::extract::{DefaultBodyLimit, Path, Query, State};
-use axum::http::{HeaderMap, StatusCode};
+use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::sse::{Event, Sse};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{delete, get, post};
@@ -11,6 +12,7 @@ use axum::{Json, Router};
 use bmo_eye_client::State as LookState;
 use bmo_eye_client::*;
 use futures_util::stream::Stream;
+use headers::{Header, Range};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use sha2::Digest as _;
@@ -31,6 +33,12 @@ pub struct App {
 const PICTURE_CEILING: usize = 20 * 1024 * 1024;
 /// The largest upload of a video, and so the body limit the upload route reads up to.
 const VIDEO_CEILING: usize = 2 * 1024 * 1024 * 1024;
+
+/// The longest question a look may ask, in characters (`docs/api.md`, 「What a caller asks」).
+const QUESTION_CHARACTERS: usize = 8_000;
+
+/// How long a caller waits before it asks again where the service cannot take a look yet.
+const RETRY_AFTER_S: u64 = 5;
 
 pub fn app(app: App) -> Router {
   let state = Arc::new(app);
@@ -81,10 +89,88 @@ async fn no_route() -> Response {
   failure(StatusCode::NOT_FOUND, "no-route", "no route answers this method and path")
 }
 
-async fn health(State(_app): State<Arc<App>>) -> Response {
+/// 503 `not-ready`: the service cannot take a look yet, and the wait a caller should take before asking again.
+fn not_ready(why: impl Into<String>) -> Response {
+  (
+    StatusCode::SERVICE_UNAVAILABLE,
+    [(header::RETRY_AFTER, RETRY_AFTER_S.to_string())],
+    Json(Failure {
+      code: "not-ready".into(),
+      error: why.into(),
+    }),
+  )
+    .into_response()
+}
+
+/// How the service stands: whether it answers a look, and where it cannot, which of its two checks failed.
+pub enum Stands {
+  Ready,
+  Store { why: String },
+  Backends { why: String },
+}
+
+impl Stands {
+  /// Whether the service answers a look now.
+  pub fn ready(self: &Stands) -> bool {
+    matches!(self, Stands::Ready)
+  }
+
+  /// The sentence `GET /health` answers in `reason`: null where the service stands.
+  pub fn reason(self: &Stands) -> Option<String> {
+    match self {
+      Stands::Ready => None,
+      Stands::Store { why } | Stands::Backends { why } => Some(why.clone()),
+    }
+  }
+}
+
+/// The check behind a health answer: the service reads its store and asks the state of every chain, the same
+/// check `GET /modes` spells out.
+pub async fn readiness(app: &Arc<App>) -> Stands {
+  if let Err(why) = app.store.readable() {
+    return Stands::Store { why };
+  }
+  let chains = modes(&app.settings).await;
+  let rungs = chains
+    .iter()
+    .flat_map(|chain| chain.chain.iter())
+    .filter(|rung| rung.name != "caller")
+    .collect::<Vec<&ChainRung>>();
+  if !rungs.iter().any(|rung| rung.state == "ready" || rung.state == "busy") {
+    return Stands::Backends {
+      why: no_backend_reached(&rungs),
+    };
+  }
+  Stands::Ready
+}
+
+/// Why a service whose chains hold no standing backend says so: every rung and what it found.
+fn no_backend_reached(rungs: &[&ChainRung]) -> String {
+  let found = rungs.iter().map(|rung| rung_words(rung)).collect::<Vec<String>>().join("; ");
+  if found.is_empty() {
+    return "no backend of any chain could be reached".into();
+  }
+  format!("no backend of any chain could be reached: {found}")
+}
+
+/// One rung of a mode's chain as a sentence: its name, the node it stands on, what it is and why.
+fn rung_words(rung: &ChainRung) -> String {
+  let where_it_stands = match &rung.node {
+    Some(node) => format!("{} {node}", rung.name),
+    None => rung.name.clone(),
+  };
+  format!(
+    "{where_it_stands} {}: {}",
+    rung.state,
+    rung.reason.as_deref().unwrap_or("no reason given")
+  )
+}
+
+async fn health(State(app): State<Arc<App>>) -> Response {
+  let stands = readiness(&app).await;
   Json(Health {
-    ready: true,
-    reason: None,
+    ready: stands.ready(),
+    reason: stands.reason(),
     version: env!("CARGO_PKG_VERSION").into(),
   })
   .into_response()
@@ -111,18 +197,33 @@ async fn create_look(
     Ok(Json(body)) => body,
     Err(e) => return failure(StatusCode::BAD_REQUEST, "bad-request", e.body_text()),
   };
+  // Its store holds the look: one that cannot be read answers `not-ready` with the wait it should take.
+  if let Err(why) = app.store.readable() {
+    return not_ready(why);
+  }
   let wait = q.wait_ms.unwrap_or(0).clamp(0, 600_000);
   if body.question.trim().is_empty() {
     return failure(StatusCode::BAD_REQUEST, "bad-request", "a look needs a question");
   }
+  if body.question.chars().count() > QUESTION_CHARACTERS {
+    return failure(
+      StatusCode::BAD_REQUEST,
+      "bad-request",
+      format!("a look asks a question of at most {QUESTION_CHARACTERS} characters"),
+    );
+  }
   if body.sources.is_empty() {
     return failure(StatusCode::BAD_REQUEST, "bad-request", "a look needs at least one source");
   }
-  if body.mode == Mode::Watch && body.sources.len() != 1 {
-    return failure(StatusCode::BAD_REQUEST, "bad-request", "a watch look takes one source");
-  }
-  if body.mode != Mode::Watch && body.sources.len() > 16 {
-    return failure(StatusCode::TOO_MANY_REQUESTS, "too-large", "a look takes sixteen sources at most");
+  let named = body.sources.len();
+  let word = body.mode.as_str();
+  let ceiling = body.mode.source_ceiling();
+  if named > ceiling {
+    return failure(
+      StatusCode::PAYLOAD_TOO_LARGE,
+      "too-large",
+      format!("the look names {named} sources and {word} takes at most {ceiling}"),
+    );
   }
   // The sources are read once here, so a missing upload or an unreadable path is refused as a request.
   let mut described = Vec::new();
@@ -292,7 +393,32 @@ async fn create_upload(
   }
 }
 
-async fn upload_content(State(app): State<Arc<App>>, Path(word): Path<String>) -> Response {
+/// The span a request's `Range` header asks for, both ends counted in: none where the request names no
+/// header, where it does not read, or where an upload of `total` bytes holds no such span — the whole bytes
+/// are the answer then.
+pub fn asked_span(headers: &HeaderMap, total: usize) -> Option<(usize, usize)> {
+  let asked = headers.get(header::RANGE)?;
+  let range = Range::decode(&mut std::iter::once(asked)).ok()?;
+  let (start, end) = range.satisfiable_ranges(total as u64).next()?;
+  let from = match start {
+    Bound::Included(from) => from,
+    Bound::Excluded(from) => from + 1,
+    Bound::Unbounded => 0,
+  };
+  let last = total.saturating_sub(1) as u64;
+  let to = match end {
+    Bound::Included(to) => to.min(last),
+    Bound::Excluded(to) => to.checked_sub(1)?.min(last),
+    Bound::Unbounded => last,
+  };
+  (from <= to && from < total as u64).then_some((from as usize, to as usize))
+}
+
+async fn upload_content(
+  State(app): State<Arc<App>>,
+  headers: HeaderMap,
+  Path(word): Path<String>,
+) -> Response {
   let id = match word.parse::<i64>() {
     Ok(id) => id,
     Err(_) => return failure(StatusCode::NOT_FOUND, "no-route", format!("{word} is not an upload id")),
@@ -304,7 +430,22 @@ async fn upload_content(State(app): State<Arc<App>>, Path(word): Path<String>) -
         .upload(id)
         .map(|u| u.media_type)
         .unwrap_or_else(|_| "application/octet-stream".into());
-      ([(axum::http::header::CONTENT_TYPE, media)], bytes).into_response()
+      let total = bytes.len();
+      match asked_span(&headers, total) {
+        None => {
+          ([(header::ACCEPT_RANGES, "bytes".into()), (header::CONTENT_TYPE, media)], bytes).into_response()
+        }
+        Some((from, to)) => (
+          StatusCode::PARTIAL_CONTENT,
+          [
+            (header::ACCEPT_RANGES, "bytes".into()),
+            (header::CONTENT_TYPE, media),
+            (header::CONTENT_RANGE, format!("bytes {from}-{to}/{total}")),
+          ],
+          bytes[from..=to].to_vec(),
+        )
+          .into_response(),
+      }
     }
     Err(_) => failure(StatusCode::NOT_FOUND, "not-found", format!("no upload {id}")),
   }

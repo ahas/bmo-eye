@@ -9,7 +9,7 @@
             }
           }
         },
-        "description": "A failure, in the common error shape. The codes:\n- `bad-request` (400): the body or query is not the shape the route takes, a mode is unknown, or an option is not the one the mode takes\n- `unauthorized` (401): the bearer token is missing or wrong\n- `not-found` (404): no look or upload of that id\n- `no-route` (404): no route answers this method and path\n- `too-large` (413): an upload over the ceiling, or more sources than the route takes\n- `unsupported-source` (422): the mode takes no such source\n- `failed` (500): a store call behind the route failed; the sentence is the store's\n- `not-ready` (503): the server is starting and cannot take a look yet; `Retry-After` says when to ask again"
+        "description": "A failure, in the common error shape. The codes:\n- `bad-request` (400): the body or query is not the shape the route takes, a mode is unknown, or an option is not the one the mode takes\n- `unauthorized` (401): the bearer token is missing or wrong\n- `not-found` (404): no look or upload of that id\n- `no-route` (404): no route answers this method and path\n- `too-large` (413): an upload over the ceiling, or more sources than the route takes\n- `unsupported-source` (422): the mode takes no such source\n- `failed` (500): a store call behind the route failed; the sentence is the store's\n- `not-ready` (503): its store cannot be read, so no look can be created; `Retry-After` says when to ask again"
       }
     },
     "schemas": {
@@ -1128,6 +1128,18 @@
               "application/octet-stream": {
                 "schema": {
                   "description": "The upload's bytes, in the media type the upload was sent as.",
+                  "format": "binary",
+                  "type": "string"
+                }
+              }
+            },
+            "description": "The bytes of an upload, answered in the media type it was sent as; a `Range` header answers 206 with that span."
+          },
+          "206": {
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "description": "The span the `Range` header names, in the media type the upload was sent as.",
                   "format": "binary",
                   "type": "string"
                 }

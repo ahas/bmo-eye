@@ -32,6 +32,14 @@ impl Mode {
       _ => None,
     }
   }
+
+  /// How many sources one look of this mode takes at most (`docs/api.md`, 「Modes」 and 「Limits」).
+  pub fn source_ceiling(self) -> usize {
+    match self {
+      Mode::Watch => 1,
+      Mode::See | Mode::Read => 16,
+    }
+  }
 }
 
 /// A look's place in its life.

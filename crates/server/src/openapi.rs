@@ -51,7 +51,7 @@ const CODES: &[(&str, u16, &str)] = &[
   (
     "not-ready",
     503,
-    "the server is starting and cannot take a look yet; `Retry-After` says when to ask again",
+    "its store cannot be read, so no look can be created; `Retry-After` says when to ask again",
   ),
 ];
 
@@ -67,8 +67,8 @@ struct Route {
   parameters: Vec<Value>,
   /// The body's content, by its media type, none for a route that takes none.
   body: Option<Value>,
-  /// The success's status and content, none for an answer with no body.
-  answer: (u16, Option<Value>),
+  /// The successes the route answers, each with its status and content; one for a route with one shape.
+  answers: Vec<(u16, Option<Value>)>,
   /// The codes of its own, beside the token's and those every route can answer.
   codes: Vec<&'static str>,
 }
@@ -85,15 +85,18 @@ impl Route {
 
     codes.extend(own);
 
-    let (status, content) = self.answer;
-    let mut success = json!({ "description": self.summary });
+    let mut responses = Map::new();
 
-    if let Some(content) = content {
-      success["content"] = content;
+    for (status, content) in self.answers {
+      let mut success = json!({ "description": self.summary });
+
+      if let Some(content) = content {
+        success["content"] = content;
+      }
+
+      responses.insert(status.to_string(), success);
     }
 
-    let mut responses = Map::new();
-    responses.insert(status.to_string(), success);
     responses.insert("default".into(), json!({ "$ref": "#/components/responses/Error" }));
 
     let mut operation = json!({
@@ -183,7 +186,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       summary: "The service's health: whether it can take a look, and the version it runs.",
       parameters: Vec::new(),
       body: None,
-      answer: (200, Some(json_of::<Health>(generator))),
+      answers: vec![(200, Some(json_of::<Health>(generator)))],
       codes: Vec::new(),
     },
     Route {
@@ -193,7 +196,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       summary: "Take a look in: one mode, one question, one set of sources. The look is created either way and runs to its end whatever the hold; `waitMs` says how long the route holds the answer open.",
       parameters: query::<LookQuery>(generator),
       body: Some(json_of::<NewLook>(generator)),
-      answer: (201, Some(json_of::<Look>(generator))),
+      answers: vec![(201, Some(json_of::<Look>(generator)))],
       codes: vec!["not-found", "too-large", "unsupported-source", "not-ready", "failed"],
     },
     Route {
@@ -203,7 +206,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       summary: "The looks, newest first, a page at a time; narrowed by mode and state.",
       parameters: query::<ListQuery>(generator),
       body: None,
-      answer: (200, Some(json_of::<LookPage>(generator))),
+      answers: vec![(200, Some(json_of::<LookPage>(generator)))],
       codes: vec!["failed"],
     },
     Route {
@@ -213,7 +216,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       summary: "One look, as its record stands now.",
       parameters: vec![key("lookId", "The look's id.", "path")],
       body: None,
-      answer: (200, Some(json_of::<Look>(generator))),
+      answers: vec![(200, Some(json_of::<Look>(generator)))],
       codes: vec!["not-found", "no-route"],
     },
     Route {
@@ -223,7 +226,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       summary: "Stop a running look, or let go of one that ended; the record stays.",
       parameters: vec![key("lookId", "The look's id.", "path")],
       body: None,
-      answer: (204, None),
+      answers: vec![(204, None)],
       codes: vec!["not-found", "no-route"],
     },
     Route {
@@ -233,7 +236,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       summary: "Send the bytes here first and name the upload in the look: the body is the bytes, `Content-Type` names the media type the mode reads.",
       parameters: Vec::new(),
       body: Some(bytes("The bytes of a picture, a document or a video, as a look will name them.")),
-      answer: (201, Some(json_of::<Upload>(generator))),
+      answers: vec![(201, Some(json_of::<Upload>(generator)))],
       codes: vec!["too-large", "unsupported-source", "failed"],
     },
     Route {
@@ -252,7 +255,13 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
         }),
       ],
       body: None,
-      answer: (200, Some(bytes("The upload's bytes, in the media type the upload was sent as."))),
+      answers: vec![
+        (200, Some(bytes("The upload's bytes, in the media type the upload was sent as."))),
+        (
+          206,
+          Some(bytes("The span the `Range` header names, in the media type the upload was sent as.")),
+        ),
+      ],
       codes: vec!["not-found", "no-route"],
     },
     Route {
@@ -262,7 +271,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       summary: "Let go of an upload the caller no longer needs.",
       parameters: vec![key("uploadId", "The upload's id.", "path")],
       body: None,
-      answer: (204, None),
+      answers: vec![(204, None)],
       codes: vec!["not-found", "no-route", "failed"],
     },
     Route {
@@ -272,7 +281,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       summary: "The three modes as they stand, each with the chain it asks in order and every backend's state.",
       parameters: Vec::new(),
       body: None,
-      answer: (
+      answers: vec![(
         200,
         Some(json!({
           "application/json": {
@@ -282,7 +291,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
             },
           },
         })),
-      ),
+      )],
       codes: Vec::new(),
     },
     Route {
@@ -292,7 +301,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
       summary: "The service's one stream: each event names a look and its change.",
       parameters: query::<EventQuery>(generator),
       body: None,
-      answer: (
+      answers: vec![(
         200,
         Some(json!({
           "text/event-stream": {
@@ -302,7 +311,7 @@ fn routes(generator: &mut SchemaGenerator) -> Vec<Route> {
             },
           },
         })),
-      ),
+      )],
       codes: Vec::new(),
     },
   ]

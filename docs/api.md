@@ -35,9 +35,15 @@ common wire format」 and 「API design」).
 |---|---|
 | `GET /health` | 200 `ready`, `reason` (null when ready), `version` |
 
-`ready` is false while the server starts, while its store is unreadable, and — stated in `reason` — while
-no backend of any chain could be reached at the last check. A caller that gets `ready: false` may still
-create a look; the look waits.
+`GET /health` answers 200 whatever it finds: its answer is a fresh check of what stands now, reading its
+store and asking the state of every mode's chain — the same check `GET /modes` spells out.
+
+- **`ready` is false, and `reason` names which,** while its store cannot be read and while no backend of any
+  mode's chain could be reached. A server that has not opened its store and bound its listener answers no
+  route at all, which is what a caller waits on through the unit's own start.
+- **A caller that gets `ready: false` may still create a look** where no backend could be reached: the look
+  is created and waits. Where its store cannot be read no look can be created, and `POST /looks` answers 503
+  `not-ready` with `Retry-After: 5`, the seconds to wait before asking again.
 
 ## What a caller asks
 
@@ -135,7 +141,7 @@ downloaded on the node with `yt-dlp` (`docs/modes.md`, 「watch: video」).
 | 413 | `too-large` | An upload over the ceiling, or more sources than the route takes |
 | 422 | `unsupported-source` | The mode takes no such source: an image in `watch`, a document that is not a PDF or an image in `read`, a `path` outside the source root |
 | 500 | `failed` | A store call behind the route failed; `error` is the store's sentence |
-| 503 | `not-ready` | The server is starting and cannot take a look yet; `Retry-After` says when to ask again |
+| 503 | `not-ready` | Its store cannot be read, so no look can be created; `Retry-After` says when to ask again |
 
 ## Uploads
 
@@ -147,6 +153,12 @@ upload for as long as a look names it, and removes it a day after its last look 
 | `POST /uploads` | the bytes as the body, a media type the mode reads, `Content-Length` | 201, the `Upload` |
 | `GET /uploads/{uploadId}/content` | the `Range` header | 200 or 206, the bytes |
 | `DELETE /uploads/{uploadId}` | | 204 |
+
+**The bytes go out in the media type the upload was sent as,** and the route says it takes byte ranges with
+`Accept-Ranges: bytes`. A `Range` header names one span of them, `bytes=` its first and last byte counted in,
+and the answer is 206 with that span and a `Content-Range` header naming it in the same shape. A span that
+does not read, or that starts at or past the upload's last byte, is ignored and the whole bytes answered with
+200.
 
 **An upload:** `id`, `mediaType`, `bytes`, `sha256`, `createdAt`. A body over `20971520` bytes, or over
 `2147483648` bytes where its media type is a video, is 413 `too-large`, whatever size the body arrives at;
