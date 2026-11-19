@@ -225,6 +225,11 @@ async fn create_look(
       format!("the look names {named} sources and {word} takes at most {ceiling}"),
     );
   }
+  // Beside the source ceiling, the mode answers its own option shapes: a name it holds none of,
+  // or a value outside the shape the modes' table states, is refused (`docs/api.md`).
+  if let Some(why) = body.options.refusal_for(body.mode) {
+    return failure(StatusCode::BAD_REQUEST, "bad-request", why);
+  }
   // The sources are read once here, so a missing upload or an unreadable path is refused as a request.
   let mut described = Vec::new();
   for source in &body.sources {
@@ -266,7 +271,7 @@ async fn create_look(
       }
     }
   }
-  let look = match app.store.create_look(&body, &described) {
+  let look = match app.store.create_look(body, &described) {
     Ok(l) => l,
     Err(e) => return failure(StatusCode::INTERNAL_SERVER_ERROR, "failed", e),
   };

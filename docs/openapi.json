@@ -378,17 +378,19 @@
             "$ref": "#/components/schemas/Mode"
           },
           "options": {
-            "$ref": "#/components/schemas/Options",
+            "$ref": "#/components/schemas/NewOptions",
             "default": {
-              "detail": "high",
-              "format": "text",
-              "fps": 1.0,
-              "handOff": false,
-              "language": "ko",
-              "maxFrames": 12,
-              "speech": true,
-              "startS": 0.0,
-              "tables": true
+              "detail": null,
+              "endS": null,
+              "format": null,
+              "fps": null,
+              "handOff": null,
+              "language": null,
+              "maxFrames": null,
+              "pages": null,
+              "speech": null,
+              "startS": null,
+              "tables": null
             }
           },
           "question": {
@@ -406,6 +408,87 @@
           "question",
           "sources"
         ],
+        "type": "object"
+      },
+      "NewOptions": {
+        "additionalProperties": false,
+        "description": "The options a look taken in asks: only the names the caller gave stand, an unset name runs with\nits default, and the create route refuses a name the mode holds none of and a value outside the\nshape the modes' table states (`docs/api.md`, 「What a caller asks」 and 「Modes」).",
+        "properties": {
+          "detail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "endS": {
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "format": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fps": {
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "handOff": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "language": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "maxFrames": {
+            "format": "int64",
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "pages": {
+            "items": {
+              "format": "int64",
+              "type": "integer"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
+          "speech": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "startS": {
+            "format": "double",
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "tables": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
         "type": "object"
       },
       "Options": {

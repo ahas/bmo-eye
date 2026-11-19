@@ -178,7 +178,7 @@ a media type outside the set in 「What each mode reads」 is 422 `unsupported-s
 | `handOff` | `true` or `false`, whether the caller's own model takes the sources where no backend of the server answers (「Handing the input to the caller」); every mode takes it | `false` |
 | `detail` | `low`, `high` — how much of an image the backend is shown | `high` |
 | `fps` | 0.05–4, frames taken from each second of the video | `1` |
-| `maxFrames` | 1–1024, the ceiling on frames taken from one video | 128 |
+| `maxFrames` | 1–1024, the ceiling on frames taken from one video | 12 |
 | `startS`, `endS` | a span of the video, in seconds | the whole video |
 | `speech` | `true` or `false`, whether the speech is read | `true` |
 | `pages` | a list of page numbers, or null for all | all |

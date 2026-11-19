@@ -243,18 +243,13 @@ async fn command(step: Eye) -> Result<(), String> {
         mode: Mode::Watch,
         question,
         sources: vec![source_ref(&w.source)],
-        options: Options {
-          format: "text".into(),
-          fps: w.fps,
-          max_frames: w.max_frames,
-          start_s: w.start.unwrap_or(0.0),
+        options: NewOptions {
+          fps: Some(w.fps),
+          max_frames: Some(w.max_frames),
+          start_s: w.start,
           end_s: w.end,
-          speech: !w.no_speech,
-          pages: None,
-          language: "ko".into(),
-          tables: true,
-          detail: None,
-          hand_off: false,
+          speech: Some(!w.no_speech),
+          ..NewOptions::default()
         },
         labels: Default::default(),
       };
@@ -316,26 +311,28 @@ async fn command(step: Eye) -> Result<(), String> {
 
 async fn put(client: EyeClient, mode: Mode, p: Put) -> Result<(), String> {
   let question = p.question.clone().unwrap_or_else(|| default_question(mode).into());
+  let format = Some(p.format.clone());
   let pages = p
     .pages
     .as_ref()
     .map(|s| s.split(',').filter_map(|w| w.trim().parse::<i64>().ok()).collect());
+  // Each sub-verb asks only the options its mode holds (`docs/api.md`, 「Modes」).
   let look = NewLook {
     mode,
     question,
     sources: p.sources.iter().map(|s| source_ref(s)).collect(),
-    options: Options {
-      format: p.format.clone(),
-      detail: None,
-      fps: 1.0,
-      max_frames: 12,
-      start_s: 0.0,
-      end_s: None,
-      speech: true,
-      pages,
-      language: p.language.clone(),
-      tables: !p.no_tables,
-      hand_off: false,
+    options: match mode {
+      Mode::Read => NewOptions {
+        format,
+        pages,
+        language: Some(p.language.clone()),
+        tables: Some(!p.no_tables),
+        ..NewOptions::default()
+      },
+      Mode::See | Mode::Watch => NewOptions {
+        format,
+        ..NewOptions::default()
+      },
     },
     labels: Default::default(),
   };

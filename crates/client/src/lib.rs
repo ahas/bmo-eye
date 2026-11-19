@@ -260,6 +260,161 @@ pub struct LookPage {
   pub more: bool,
 }
 
+/// The options a look taken in asks: only the names the caller gave stand, an unset name runs with
+/// its default, and the create route refuses a name the mode holds none of and a value outside the
+/// shape the modes' table states (`docs/api.md`, 「What a caller asks」 and 「Modes」).
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct NewOptions {
+  pub format: Option<String>,
+  pub detail: Option<String>,
+  pub fps: Option<f64>,
+  pub max_frames: Option<i64>,
+  pub start_s: Option<f64>,
+  pub end_s: Option<f64>,
+  pub speech: Option<bool>,
+  pub pages: Option<Vec<i64>>,
+  pub language: Option<String>,
+  pub tables: Option<bool>,
+  pub hand_off: Option<bool>,
+}
+
+impl NewOptions {
+  /// The options the look will run with: every asked name as it stands, every other its default
+  /// (`docs/api.md`, 「A look」's `options` row).
+  pub fn filled(self) -> Options {
+    let mut run = Options::default();
+    if let Some(word) = self.format {
+      run.format = word
+    }
+    if let Some(word) = self.detail {
+      run.detail = Some(word)
+    }
+    if let Some(rate) = self.fps {
+      run.fps = rate
+    }
+    if let Some(ceiling) = self.max_frames {
+      run.max_frames = ceiling
+    }
+    if let Some(seconds) = self.start_s {
+      run.start_s = seconds
+    }
+    if let Some(seconds) = self.end_s {
+      run.end_s = Some(seconds)
+    }
+    if let Some(on) = self.speech {
+      run.speech = on
+    }
+    if let Some(numbers) = self.pages {
+      run.pages = Some(numbers)
+    }
+    if let Some(word) = self.language {
+      run.language = word
+    }
+    if let Some(on) = self.tables {
+      run.tables = on
+    }
+    if let Some(on) = self.hand_off {
+      run.hand_off = on
+    }
+    run
+  }
+
+  /// Why the create route refuses these options under a mode: a name the mode holds none of, or a
+  /// value outside its shape. The answer is the 400 `bad-request` sentence, or null while every
+  /// asked name is the mode's own and in its shape (`docs/api.md`, 「Errors of the routes」).
+  pub fn refusal_for(&self, mode: Mode) -> Option<String> {
+    let word = mode.as_str();
+    // An unset format runs with its default, which always reads.
+    if self.format.as_ref().is_some_and(|text| !is_answer_format(text)) {
+      return Some("format is text, markdown or json".into());
+    }
+    if let Some(text) = &self.detail {
+      if mode != Mode::See {
+        return Some(format!("{word} takes no detail option"));
+      }
+      if text != "low" && text != "high" {
+        return Some("detail is low or high".into());
+      }
+    }
+    if let Some(rate) = &self.fps {
+      if mode != Mode::Watch {
+        return Some(format!("{word} takes no fps option"));
+      }
+      if *rate < 0.05 || *rate > 4.0 {
+        return Some("fps is 0.05 to 4".into());
+      }
+    }
+    if let Some(ceiling) = &self.max_frames {
+      if mode != Mode::Watch {
+        return Some(format!("{word} takes no maxFrames option"));
+      }
+      if *ceiling < 1 || *ceiling > 1024 {
+        return Some("maxFrames is 1 to 1024".into());
+      }
+    }
+    // A span of the video counts seconds from its beginning, and its end comes after its start.
+    if let Some(seconds) = &self.start_s {
+      if mode != Mode::Watch {
+        return Some(format!("{word} takes no startS option"));
+      }
+      if *seconds < 0.0 {
+        return Some("startS and endS are seconds of a video, counted from its beginning".into());
+      }
+    }
+    if let Some(seconds) = &self.end_s {
+      if mode != Mode::Watch {
+        return Some(format!("{word} takes no endS option"));
+      }
+      if *seconds <= self.start_s.unwrap_or(0.0) {
+        return Some("startS and endS are a span of the video: its end comes after its start".into());
+      }
+    }
+    if self.speech.is_some() && mode != Mode::Watch {
+      return Some(format!("{word} takes no speech option"));
+    }
+    if let Some(numbers) = &self.pages {
+      if mode != Mode::Read {
+        return Some(format!("{word} takes no pages option"));
+      }
+      if numbers.iter().any(|number| *number < 1) {
+        return Some("pages names page numbers, counted from 1".into());
+      }
+    }
+    if let Some(tag) = &self.language {
+      if mode != Mode::Read {
+        return Some(format!("{word} takes no language option"));
+      }
+      if !is_language_tag(tag) {
+        return Some("language is a BCP 47 language tag".into());
+      }
+    }
+    if self.tables.is_some() && mode != Mode::Read {
+      return Some(format!("{word} takes no tables option"));
+    }
+    None
+  }
+}
+
+/// Whether a word reads as one of the answer formats the modes state (`docs/api.md`, 「Modes」's option table).
+fn is_answer_format(word: &str) -> bool {
+  word == "text" || word == "markdown" || word == "json"
+}
+
+/// Whether a word reads as a BCP 47 language tag: a language part of two to four letters, then
+/// dashed parts of one to eight letters or digits. The reading needs the tag's shape alone — no
+/// registry of assigned tags stands here, and a look answers in whatever tag its caller names.
+fn is_language_tag(word: &str) -> bool {
+  let mut parts = word.split("-");
+  let language = parts.next().unwrap_or("");
+  if !(language.len() >= 2 && language.len() <= 4 && language.chars().all(|c| c.is_ascii_alphabetic())) {
+    return false;
+  }
+  word.len() <= 64
+    && parts
+      .all(|held| !held.is_empty() && held.len() <= 8 && held.chars().all(|c| c.is_ascii_alphanumeric()))
+}
+
 /// A look taken in.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -268,7 +423,7 @@ pub struct NewLook {
   pub question: String,
   pub sources: Vec<SourceRef>,
   #[serde(default)]
-  pub options: Options,
+  pub options: NewOptions,
   #[serde(default)]
   pub labels: std::collections::BTreeMap<String, String>,
 }

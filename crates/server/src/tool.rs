@@ -3,7 +3,7 @@
 //! 「Handing the input to the caller」).
 
 use base64::Engine as _;
-use bmo_eye_client::{EyeClient, Look, Mode, NewLook, Options, Source, SourceRef};
+use bmo_eye_client::{EyeClient, Look, Mode, NewLook, NewOptions, Source, SourceRef};
 use serde_json::{Value, json};
 
 use crate::chain::rung_reasons;
@@ -108,28 +108,39 @@ fn asked(call: &Value) -> Result<NewLook, String> {
   let Some(path) = args["path"].as_str() else {
     return Err("the call names no path".into());
   };
-  let pages = args["pages"]
-    .as_str()
-    .map(|p| p.split(',').filter_map(|w| w.trim().parse::<i64>().ok()).collect());
   Ok(NewLook {
     mode,
     question: args["question"].as_str().unwrap_or(default_question(mode)).to_string(),
     sources: vec![source_ref(path)],
-    options: Options {
-      format: "text".into(),
-      detail: None,
-      fps: args["fps"].as_f64().unwrap_or(1.0),
-      max_frames: args["maxFrames"].as_i64().unwrap_or(12),
-      start_s: 0.0,
-      end_s: None,
-      speech: args["speech"].as_bool().unwrap_or(true),
-      pages,
-      language: "ko".into(),
-      tables: true,
-      hand_off: asks_hand_off(mode, &call["session"]),
-    },
+    options: asked_options(mode, args, &call["session"]),
     labels: Default::default(),
   })
+}
+
+/// The options an entry asks: only the names its mode holds, handed on where the call's arguments
+/// give them, the rest left unset so the run fills their defaults (`docs/api.md`, 「Modes」).
+fn asked_options(mode: Mode, args: &Value, session: &Value) -> NewOptions {
+  let hand_off = Some(asks_hand_off(mode, session));
+  match mode {
+    Mode::Watch => NewOptions {
+      fps: args["fps"].as_f64(),
+      max_frames: args["maxFrames"].as_i64(),
+      speech: args["speech"].as_bool(),
+      hand_off,
+      ..NewOptions::default()
+    },
+    Mode::Read => NewOptions {
+      pages: args["pages"]
+        .as_str()
+        .map(|p| p.split(',').filter_map(|w| w.trim().parse::<i64>().ok()).collect()),
+      hand_off,
+      ..NewOptions::default()
+    },
+    Mode::See => NewOptions {
+      hand_off,
+      ..NewOptions::default()
+    },
+  }
 }
 
 /// The look created and read until it has ended: the entry is unbounded, so the call waits however long it runs.

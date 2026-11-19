@@ -53,10 +53,10 @@ impl Store {
     self.conn.lock().unwrap_or_else(|e| e.into_inner())
   }
 
-  pub fn create_look(&self, look: &NewLook, sources: &[Source]) -> Result<Look, String> {
+  pub fn create_look(&self, look: NewLook, sources: &[Source]) -> Result<Look, String> {
     let created = now_ms();
     let labels = serde_json::to_string(&look.labels).map_err(|e| e.to_string())?;
-    let options = serde_json::to_string(&look.options).map_err(|e| e.to_string())?;
+    let options = serde_json::to_string(&look.options.filled()).map_err(|e| e.to_string())?;
     let sources = serde_json::to_string(sources).map_err(|e| e.to_string())?;
     let conn = self.lock();
     conn

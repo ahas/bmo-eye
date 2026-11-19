@@ -127,7 +127,7 @@ async fn service() -> (String, String, std::path::PathBuf) {
 }
 
 /// One `see` look at one picture, with the options given, held until it ends.
-async fn see(service: &Service, options: Options) -> Look {
+async fn see(service: &Service, options: NewOptions) -> Look {
   let client = EyeClient::new(&service.base).with_token(&service.token);
   let upload = client.upload(png(), "image/png").await.unwrap();
   client
@@ -147,10 +147,10 @@ async fn see(service: &Service, options: Options) -> Look {
     .unwrap()
 }
 
-fn json_format() -> Options {
-  Options {
-    format: "json".into(),
-    ..Options::default()
+fn json_format() -> NewOptions {
+  NewOptions {
+    format: Some("json".into()),
+    ..NewOptions::default()
   }
 }
 
@@ -178,7 +178,7 @@ async fn a_look_walks_its_chain_and_records_every_rung() {
         sources: vec![SourceRef::Upload {
           upload_id: upload.id,
         }],
-        options: Options::default(),
+        options: NewOptions::default(),
         labels: Default::default(),
       },
       30_000,
@@ -362,7 +362,7 @@ async fn a_look_with_more_sources_than_its_mode_takes_answers_too_large() {
         mode: Mode::Watch,
         question: "what is this?".into(),
         sources: pair,
-        options: Options::default(),
+        options: NewOptions::default(),
         labels: Default::default(),
       },
       0,
@@ -378,7 +378,7 @@ async fn a_look_with_more_sources_than_its_mode_takes_answers_too_large() {
         mode: Mode::See,
         question: "what is shown?".into(),
         sources: many,
-        options: Options::default(),
+        options: NewOptions::default(),
         labels: Default::default(),
       },
       0,
@@ -403,7 +403,7 @@ async fn a_question_over_its_ceiling_answers_bad_request() {
         sources: vec![SourceRef::Upload {
           upload_id: upload.id,
         }],
-        options: Options::default(),
+        options: NewOptions::default(),
         labels: Default::default(),
       },
       0,
@@ -413,6 +413,69 @@ async fn a_question_over_its_ceiling_answers_bad_request() {
   assert!(err.contains("400 bad-request"), "{err}");
   assert!(err.contains("characters"), "{err}");
   let _ = std::fs::remove_dir_all(dir);
+}
+
+/// One `POST /looks` body with the whole body given, held by no wait.
+async fn take_in(base: &str, token: &str, body: &str) -> reqwest::Response {
+  reqwest::Client::new()
+    .request(reqwest::Method::POST, format!("{base}/looks"))
+    .header("content-type", "application/json")
+    .bearer_auth(token)
+    .body(body.to_string())
+    .send()
+    .await
+    .unwrap()
+}
+
+#[tokio::test]
+async fn a_mode_refuses_an_option_it_does_not_take() {
+  let (base, token, dir) = service().await;
+  let body = r#"{"mode": "see", "question": "what is shown?", "sources": [{"kind": "upload", "uploadId": 1}], "options": {"fps": 2}}"#;
+  refused(take_in(&base, &token, body).await, 400, "bad-request", "fps").await;
+  let body = r#"{"mode": "see", "question": "what is shown?", "sources": [{"kind": "upload", "uploadId": 1}], "options": {"colour": "red"}}"#;
+  refused(take_in(&base, &token, body).await, 400, "bad-request", "colour").await;
+  let body = r#"{"mode": "read", "question": "what is written?", "sources": [{"kind": "path", "path": "/p"}], "options": {"speech": false}}"#;
+  refused(take_in(&base, &token, body).await, 400, "bad-request", "speech").await;
+  let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn an_option_out_of_its_shape_answers_bad_request() {
+  let (base, token, dir) = service().await;
+  let body = r#"{"mode": "watch", "question": "what is this?", "sources": [{"kind": "path", "path": "/v"}], "options": {"fps": 0.01}}"#;
+  refused(take_in(&base, &token, body).await, 400, "bad-request", "fps").await;
+  let body = r#"{"mode": "watch", "question": "what is this?", "sources": [{"kind": "path", "path": "/v"}], "options": {"maxFrames": 1025}}"#;
+  refused(take_in(&base, &token, body).await, 400, "bad-request", "maxFrames").await;
+  let body = r#"{"mode": "see", "question": "what is shown?", "sources": [{"kind": "upload", "uploadId": 1}], "options": {"format": "yaml"}}"#;
+  refused(take_in(&base, &token, body).await, 400, "bad-request", "format").await;
+  let body = r#"{"mode": "see", "question": "what is shown?", "sources": [{"kind": "upload", "uploadId": 1}], "options": {"detail": "medium"}}"#;
+  refused(take_in(&base, &token, body).await, 400, "bad-request", "detail").await;
+  let body = r#"{"mode": "read", "question": "what is written?", "sources": [{"kind": "path", "path": "/p"}], "options": {"pages": [0]}}"#;
+  refused(take_in(&base, &token, body).await, 400, "bad-request", "pages").await;
+  let body = r#"{"mode": "read", "question": "what is written?", "sources": [{"kind": "path", "path": "/p"}], "options": {"language": "not a tag"}}"#;
+  refused(take_in(&base, &token, body).await, 400, "bad-request", "BCP").await;
+  let _ = std::fs::remove_dir_all(dir);
+}
+
+#[tokio::test]
+async fn a_look_asking_some_options_runs_with_their_defaults() {
+  let service = service_with(vec![("stand-in", counting())], None).await;
+  let look = see(
+    &service,
+    NewOptions {
+      format: Some("markdown".into()),
+      ..NewOptions::default()
+    },
+  )
+  .await;
+  assert_eq!(look.state, "done", "{:?}", look.error);
+  assert_eq!(look.options.format, "markdown");
+  assert_eq!(look.options.detail.as_deref(), Some("high"));
+  assert_eq!(look.options.fps, 1.0);
+  assert_eq!(look.options.max_frames, 12);
+  assert_eq!(look.options.language, "ko");
+  assert!(look.options.speech && look.options.tables && !look.options.hand_off);
+  let _ = std::fs::remove_dir_all(service.dir);
 }
 
 #[tokio::test]
@@ -430,7 +493,7 @@ async fn a_mode_refuses_what_it_does_not_read() {
         sources: vec![SourceRef::Path {
           path: path.to_string_lossy().to_string(),
         }],
-        options: Options::default(),
+        options: NewOptions::default(),
         labels: Default::default(),
       },
       0,
@@ -503,7 +566,7 @@ async fn a_service_whose_chains_hold_no_backend_answers_not_ready_and_still_take
         sources: vec![SourceRef::Upload {
           upload_id: upload.id,
         }],
-        options: Options::default(),
+        options: NewOptions::default(),
         labels: Default::default(),
       },
       0,
@@ -582,7 +645,7 @@ async fn a_json_look_whose_answer_holds_no_document_asks_the_next_backend() {
 #[tokio::test]
 async fn the_openrouter_rung_asks_with_its_reasoning_off() {
   let service = service_with(Vec::new(), Some(chat("One adult is shown.", "stop"))).await;
-  let look = see(&service, Options::default()).await;
+  let look = see(&service, NewOptions::default()).await;
   assert_eq!(look.state, "done", "{:?}", look.error);
   assert_eq!(look.backend.as_ref().unwrap().name, "openrouter");
   let received = service.openrouter.as_ref().unwrap().lock().unwrap().clone();
@@ -593,7 +656,7 @@ async fn the_openrouter_rung_asks_with_its_reasoning_off() {
 #[tokio::test]
 async fn a_look_that_did_not_ask_for_the_hand_off_fails_with_every_rung_s_reason() {
   let service = service_with(vec![("first", chat("", "stop"))], None).await;
-  let look = see(&service, Options::default()).await;
+  let look = see(&service, NewOptions::default()).await;
   assert_eq!(look.state, "failed");
   assert_eq!(
     look.error.as_deref(),
@@ -609,9 +672,9 @@ async fn a_look_that_did_not_ask_for_the_hand_off_fails_with_every_rung_s_reason
 #[tokio::test]
 async fn a_look_that_asks_for_the_hand_off_ends_on_the_caller() {
   let service = service_with(vec![("first", chat("", "stop"))], None).await;
-  let options = Options {
-    hand_off: true,
-    ..Options::default()
+  let options = NewOptions {
+    hand_off: Some(true),
+    ..NewOptions::default()
   };
   let look = see(&service, options).await;
   assert_eq!(look.state, "done", "{:?}", look.error);
