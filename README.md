@@ -3,8 +3,8 @@
 # bmo-eye
 
 The platform's vision unit: one request and answer shape over three modes, each with its own chain of
-backends. It holds no model of its own — every mode looks through the Qwen3.8-Flash-Next set that the
-platform's local engine already runs on four nodes.
+backends. It holds no model of its own — every mode looks through the local OpenAI-compatible engine
+nodes its settings name, none by default, and then through the hosted backends.
 
 | Mode | CLI | What it reads |
 | --- | --- | --- |
