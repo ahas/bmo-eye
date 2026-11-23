@@ -362,7 +362,7 @@ pub fn audio(settings: &Settings, video: &Path) -> Result<PathBuf, String> {
   Ok(wav)
 }
 
-/// Read a video's speech on n2's CPU through the jake hub (`docs/engines.md`).
+/// Read a video's speech on the speech node's CPU through the jake hub (`docs/engines.md`).
 ///
 /// The audio is carried to the node by the hub's own upload (a command line is no place for megabytes),
 /// read by the whisper the node installed in stage 1, and the transcript is answered back on the exec's
@@ -370,6 +370,9 @@ pub fn audio(settings: &Settings, video: &Path) -> Result<PathBuf, String> {
 pub async fn speech(settings: &Settings, wav: &Path, language: &str) -> Result<Speech, String> {
   if !settings.speech.enabled {
     return Err("speech is turned off in the settings".into());
+  }
+  if settings.speech.agent.trim().is_empty() {
+    return Err("no speech node is named in the settings (speech.agent)".into());
   }
   let started = std::time::Instant::now();
   let stem = format!("bmo-eye-speech-{}", std::process::id());

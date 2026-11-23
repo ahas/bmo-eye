@@ -18,7 +18,7 @@ type Reply = Arc<dyn Fn(&Value) -> Value + Send + Sync>;
 /// The requests a stand-in was sent, in order.
 type Received = Arc<Mutex<Vec<Value>>>;
 
-/// A stand-in for one chat backend, a Lab-arena instance or OpenRouter: it says it reads pictures, answers every
+/// A stand-in for one chat backend, a local engine node or OpenRouter: it says it reads pictures, answers every
 /// chat with what `reply` makes of it, and keeps every request.
 async fn stand_in(reply: Reply) -> (String, Received) {
   let received: Received = Arc::default();
@@ -38,7 +38,7 @@ async fn stand_in(reply: Reply) -> (String, Received) {
   (format!("{addr}"), received)
 }
 
-/// A reply that counts the pictures it was sent, as a Lab-arena timing block reports them.
+/// A reply that counts the pictures it was sent, as a local engine's timing block reports them.
 fn counting() -> Reply {
   Arc::new(|body| {
     let images = body["messages"][0]["content"]
@@ -60,7 +60,7 @@ fn chat(content: &str, finish_reason: &str) -> Reply {
   Arc::new(move |_| answer.clone())
 }
 
-/// A service whose chain is the stand-in Lab-arena nodes named, then a stand-in OpenRouter where one is given.
+/// A service whose chain is the stand-in local engine nodes named, then a stand-in OpenRouter where one is given.
 struct Service {
   base: String,
   token: String,
@@ -79,10 +79,10 @@ async fn service_with(nodes: Vec<(&str, Reply)>, openrouter: Option<Reply>) -> S
     root: dir.to_string_lossy().to_string(),
     ..Settings::default()
   };
-  settings.lab-arena.nodes = Vec::new();
+  settings.local.nodes = Vec::new();
   for (name, reply) in nodes {
     let (address, _) = stand_in(reply).await;
-    settings.lab-arena.nodes.push(eye_server::config::Node {
+    settings.local.nodes.push(eye_server::config::Node {
       name: name.into(),
       address,
       model: "qwen3.8-flash-next-iq3_s".into(),
@@ -186,7 +186,7 @@ async fn a_look_walks_its_chain_and_records_every_rung() {
     .await
     .unwrap();
   assert_eq!(look.state, "done", "{:?}", look.error);
-  assert_eq!(look.backend.as_ref().unwrap().name, "lab-arena");
+  assert_eq!(look.backend.as_ref().unwrap().name, "local");
   assert_eq!(look.backend.as_ref().unwrap().node.as_deref(), Some("stand-in"));
   assert_eq!(look.chain[0].state, "answered");
   assert!(look.answer.unwrap().text.contains("1 pictures"));
@@ -512,7 +512,7 @@ async fn the_modes_answer_the_chain_that_stands() {
   let modes = client.modes().await.unwrap();
   assert_eq!(modes.len(), 3);
   let see = modes.iter().find(|m| m.mode == "see").unwrap();
-  assert_eq!(see.chain[0].name, "lab-arena");
+  assert_eq!(see.chain[0].name, "local");
   assert_eq!(see.chain[0].state, "ready");
   assert_eq!(see.chain.last().unwrap().name, "caller");
   let _ = std::fs::remove_dir_all(dir);
@@ -661,7 +661,7 @@ async fn a_look_that_did_not_ask_for_the_hand_off_fails_with_every_rung_s_reason
   assert_eq!(
     look.error.as_deref(),
     Some(
-      "every backend of the chain failed: lab-arena first failed: the engine answered no words; caller skipped: the \
+      "every backend of the chain failed: local first failed: the engine answered no words; caller skipped: the \
        look did not ask for the caller's hand-off"
     )
   );
@@ -709,7 +709,7 @@ async fn an_agent_s_call_no_backend_answers_is_answered_with_the_picture_and_the
   let text = answer["content"][0]["text"].as_str().unwrap();
   assert!(text.contains("Question: who is shown?\n"), "{text}");
   assert!(text.contains(&format!("Source: {path} (image/png)\n")), "{text}");
-  assert!(text.contains("- lab-arena first failed: the engine answered no words\n"), "{text}");
+  assert!(text.contains("- local first failed: the engine answered no words\n"), "{text}");
   assert_eq!(
     answer["content"][1],
     serde_json::json!({

@@ -13,7 +13,8 @@ the operations machine at `127.0.0.1:7435`, and what of the plan is still to bui
 「What is still to build」.
 
 The server runs on the operations machine and holds no model and no card (`docs/engines.md`). It calls the
-Lab-arena engines on n3 to n6 and the hosted backends itself, and reads a video's speech on n2's CPU. A caller
+local engine nodes its settings name and the hosted backends itself, and reads a video's speech on the
+speech node's CPU. A caller
 never reaches an engine directly.
 
 ## Wire format
@@ -82,7 +83,7 @@ look is a member of the service and keeps its record after it ends.
 | `url` | `url` | an `https` address the server fetches, or downloads with `yt-dlp` where it holds a video page |
 | `path` | `path` | an absolute path on the server's node, under the source root the settings name |
 
-An `upload` source's id is also taken as `upload_id`, the name bmo-paint sends; the server writes it as
+An `upload` source's id is also taken as `upload_id`, the name some callers send; the server writes it as
 `uploadId` wherever it answers a source.
 
 `see` and `read` take `upload`, `url` and `path`. `watch` takes `url` and `path`, and an `upload` only
@@ -187,7 +188,7 @@ a media type outside the set in 「What each mode reads」 is 422 `unsupported-s
 
 `GET /modes` answers the three modes as they stand: for each, its `mode`, the `chain` it asks in order,
 and for each backend of that chain its `name`, `node` where it has one, `model`, `state` (`ready`, `busy`,
-`down`, `unconfigured`) and `reason`. The `lab-arena` backend stands once per node it can reach, so the chain
+`down`, `unconfigured`) and `reason`. The `local` backend stands once per node the settings name, so the chain
 shown is the order the look will ask them in. A tool host reads it to say whether vision is available at all; an agent reads it to know
 which transport a look will take.
 
@@ -198,8 +199,8 @@ is every backend that stood before the answer, in the order they were asked:
 
 | Field | Holds |
 |---|---|
-| `backend` | `lab-arena`, `openrouter`, `gemini` or `caller` |
-| `node` | The node the rung stood on, or null: `n3`, `n4`, `n5`, `n6` for the Lab-arena set |
+| `backend` | `local`, `openrouter`, `gemini` or `caller` |
+| `node` | The node the rung stood on, or null: the node's name from the settings for a `local` rung |
 | `model` | The model that backend would use, or null |
 | `state` | `answered`, `failed`, `skipped` or `handed-off` |
 | `reason` | Why it failed or was skipped, in English, or null |
@@ -212,7 +213,7 @@ is every backend that stood before the answer, in the order they were asked:
   connection or answered an error, the model refused the input, the hosted call failed, the answer had no
   words, was cut before its end, or under `json` held no JSON document. A backend that is still reading is
   waited for, however long it takes. `reason` is the failure as a sentence, and the next backend is asked.
-- **Every backend is asked with its thinking off,** each in its own request field: a Lab-arena engine through
+- **Every backend is asked with its thinking off,** each in its own request field: a local engine through
   its chat template, OpenRouter through its reasoning setting. A model that thinks spends the answer's
   token cap on the thinking and is cut before it answers.
 - **`answered`** ends the chain; `backend` names that entry.
@@ -240,7 +241,7 @@ carries it. The server cannot tell a caller's model from the request, so the cal
   for the caller's own harness where it is one. A record with no `reads` label — a person's `bmo use`, a
   scheduled call, a run routed to a model that reads no picture — and every `watch` look leave it false:
   the first hands its answer to a reader that cannot open the material, and no harness here reads a video in
-  a tool's answer. A service that asks the API itself, bmo-paint among them, states its own options and
+  a tool's answer. A service that asks the API itself states its own options and
   leaves it false.
 - **The eye tool answers a handed-off look with the material,** not with prose. Its text says that no
   backend answered, gives the question, names each source the way the agent opens it — a path on this
@@ -274,7 +275,7 @@ answer is written.
 `watch` reads the video's speech apart from its frames, so the answer rests on what was said as well as
 on what was shown. `speech.text` is the transcript and `speech.language` its language; `speech.model`
 names what read it. A video with no audio, or with `speech: false`, answers `speech` null. The transcript
-is the backend's own when the backend hears audio (Gemini), and n2's CPU speech model otherwise
+is the backend's own when the backend hears audio (Gemini), and the speech node's CPU model otherwise
 (faster-whisper `large-v3` int8, `docs/engines.md`).
 
 ## Limits

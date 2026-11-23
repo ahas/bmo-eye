@@ -1,5 +1,5 @@
-//! The chain a look walks: the Lab-arena instances on n3 to n6, then OpenRouter, then the caller's own model
-//! (`docs/modes.md`). Each rung answers whether it takes the look, and what it answers.
+//! The chain a look walks: the local engine nodes the settings name, then OpenRouter, then the caller's own
+//! model (`docs/modes.md`). Each rung answers whether it takes the look, and what it answers.
 
 use bmo_eye_client::*;
 
@@ -10,7 +10,7 @@ use crate::store::Outcome;
 /// One rung of a mode's chain.
 #[derive(Debug, Clone)]
 pub enum Rung {
-  Lab-arena {
+  Local {
     node: String,
     address: String,
     model: String,
@@ -41,7 +41,7 @@ pub struct Reply {
 impl Rung {
   pub fn name(&self) -> &'static str {
     match self {
-      Rung::Lab-arena { .. } => "lab-arena",
+      Rung::Local { .. } => "local",
       Rung::OpenRouter { .. } => "openrouter",
       Rung::Gemini { .. } => "gemini",
       Rung::Caller => "caller",
@@ -50,14 +50,14 @@ impl Rung {
 
   pub fn node(&self) -> Option<String> {
     match self {
-      Rung::Lab-arena { node, .. } => Some(node.clone()),
+      Rung::Local { node, .. } => Some(node.clone()),
       _ => None,
     }
   }
 
   pub fn model(&self) -> Option<String> {
     match self {
-      Rung::Lab-arena { model, .. } | Rung::OpenRouter { model, .. } | Rung::Gemini { model, .. } => {
+      Rung::Local { model, .. } | Rung::OpenRouter { model, .. } | Rung::Gemini { model, .. } => {
         Some(model.clone())
       }
       Rung::Caller => None,
@@ -73,10 +73,10 @@ pub struct Chain {
 impl Chain {
   pub fn for_mode(settings: &Settings, mode: Mode) -> Chain {
     let mut rungs: Vec<Rung> = settings
-      .lab-arena
+      .local
       .nodes
       .iter()
-      .map(|n| Rung::Lab-arena {
+      .map(|n| Rung::Local {
         node: n.name.clone(),
         address: n.address.clone(),
         model: n.model.clone(),
@@ -110,7 +110,7 @@ impl Chain {
     source_kinds: &[String],
   ) -> Result<(), String> {
     match rung {
-      Rung::Lab-arena { .. } => {
+      Rung::Local { .. } => {
         if material.images.is_empty() && mode != Mode::Read {
           return Err("no picture was taken from the source".into());
         }
@@ -241,7 +241,8 @@ impl Chain {
   }
 }
 
-/// The error of a look the chain ran out on: every rung's reason, so a caller reading only the error reads why.
+/// The error of a look the chain ran out on: every rung's reason, so a caller reading only the error reads
+/// why.
 fn ran_out(chain: &[ChainEntry]) -> String {
   format!("every backend of the chain failed: {}", rung_reasons(chain).join("; "))
 }
@@ -273,7 +274,8 @@ fn answer_format(mode: Mode, asked: &str) -> String {
 
 const JSON: &str = "json";
 
-/// A rung's reply in the format the look asked for, or why it is none: under `json`, the JSON document alone.
+/// A rung's reply in the format the look asked for, or why it is none: under `json`, the JSON document
+/// alone.
 fn shaped(reply: Reply, format: &str) -> Result<Reply, String> {
   if format != JSON {
     return Ok(reply);
@@ -330,7 +332,7 @@ async fn answer(
   // Each backend turns its thinking off through its own field; a model left thinking spends the token cap on
   // the thought and is cut before it answers.
   let (url, key_file, model, thinking_off) = match rung {
-    Rung::Lab-arena {
+    Rung::Local {
       address,
       model,
       key_file,
@@ -430,7 +432,7 @@ pub async fn modes(settings: &Settings) -> Vec<ModeInfo> {
     let mut rungs = Vec::new();
     for rung in &chain.rungs {
       let (state, reason) = match rung {
-        Rung::Lab-arena { address, .. } => {
+        Rung::Local { address, .. } => {
           match reqwest::Client::new().get(format!("http://{address}/health")).send().await {
             Ok(r) if r.status().is_success() => match r.json::<serde_json::Value>().await {
               Ok(v) if v.get("images").and_then(|i| i.as_bool()) == Some(true) => {

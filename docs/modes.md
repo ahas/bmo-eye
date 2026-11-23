@@ -6,21 +6,22 @@ and each mode has its own chain of backends. The request and answer shape is the
 
 | Mode | CLI | Reads | The engine it is answered by |
 |---|---|---|---|
-| `see` | `bmo see` | images: photos, screenshots, charts, several at once | a Lab-arena instance on n3 to n6 |
-| `read` | `bmo read` | documents: scans, PDFs, pages of text and tables | a Lab-arena instance on n3 to n6 |
-| `watch` | `bmo watch` | video: a file, a video or video-page URL, YouTube included; scenes, on-screen text, speech | a Lab-arena instance for the frames, n2's CPU for the speech |
+| `see` | `bmo see` | images: photos, screenshots, charts, several at once | a local engine node, else a hosted backend |
+| `read` | `bmo read` | documents: scans, PDFs, pages of text and tables | a local engine node, else a hosted backend |
+| `watch` | `bmo watch` | video: a file, a video or video-page URL, YouTube included; scenes, on-screen text, speech | a local engine node for the frames, else a hosted backend; the speech node's CPU for the speech |
 
-The engines are `docs/engines.md`. No mode has a model of its own: every mode reaches the Qwen3.8-Flash-Next
-set that the Lab-arena deployment already runs, and the vision unit itself holds no weights and no card.
+The engines are `docs/engines.md`. No mode has a model of its own: every mode reaches the local engine nodes the
+settings name and the hosted backends, and the vision unit itself holds no weights and no card.
 
 ## The rule every mode follows
 
 - **The chain is asked in order, and the first backend that answers answers the look.** A rung that cannot
   be reached, or that fails, is recorded and the next is asked. The look's `chain` is the whole attempt
   (`docs/api.md`, 「The chain report」).
-- **The local rung is the same four instances in every mode, n3 first.** n3 carries the general pack and is
-  the best of the four at Korean; n4, n5 and n6 carry the Coder pack and are asked in that order when n3
-  does not answer.
+- **The local rung is the same list of nodes in every mode, in the settings' order.** Each node the
+  `[local]` section names is one rung, and the next is asked when one does not answer. No node is named by
+  default, and then the chain starts at the hosted backends. In the measured set the first node carries the
+  general pack, the best at Korean, and the nodes after it the Coder pack.
 - **A picture is 300 tokens and seconds of the node's CPU.** That is what bounds a look: a few images in a
   `see` or `read`, a handful of frames in a `watch`.
 - **An answer cut before its end is no answer.** A backend that stops at its token cap, or answers no words,
@@ -44,13 +45,12 @@ image is sent as it stands: the node's reader scales it to the picture it encode
 
 | Order | Backend | Answers |
 |---|---|---|
-| 1 | `lab-arena` on n3 | the answer, from `qwen3.8-flash-next-iq3_s` |
-| 2 | `lab-arena` on n4, then n5, then n6 | the answer, from `qwen3.8-flash-next-coder-iq1_m` |
-| 3 | `openrouter` | the answer, from the model the settings name |
-| 4 | `caller` | hands the images over |
+| 1 | `local`, each node the settings name in order | the answer, from the node's model |
+| 2 | `openrouter` | the answer, from the model the settings name |
+| 3 | `caller` | hands the images over |
 
 **What it answers with.** A sentence or a few, in the language of the question; code, numbers and names as
-they stand in the picture. What the four nodes give is measured in `docs/engines.md`: a chart's largest bar
+they stand in the picture. What the measured nodes give is in `docs/engines.md`: a chart's largest bar
 and its value, a screenshot's order number and amount, a sign's road name and its two numbers, a receipt's
 shop, business number and total — each answered correctly.
 
@@ -67,15 +67,14 @@ page shows.
 
 | Order | Backend | Answers |
 |---|---|---|
-| 1 | `lab-arena` on n3 | the transcription |
-| 2 | `lab-arena` on n4, then n5, then n6 | the transcription, the Coder pack's |
-| 3 | `openrouter` | the transcription |
-| 4 | `caller` | hands the pages over |
+| 1 | `local`, each node the settings name in order | the transcription |
+| 2 | `openrouter` | the transcription |
+| 3 | `caller` | hands the pages over |
 
 **What it answers with.** The page's text, top to bottom, with its headings and list marks. A table comes
 back as a markdown table. `pages` carries one entry per page read. The transcription's accuracy is the
 node's: a clean Korean scan was read with one wrong word in thirteen lines, and a table of five rows
-exactly, on n3.
+exactly, on the general pack's node.
 
 **A hard page is the mode's limit.** 300 tokens is the whole picture's budget, so a dense page, a folded
 page, handwriting or a phone photo of a page is read worse than the clean scans measured here. The mode
@@ -84,8 +83,8 @@ one, and a page it could not read is answered as a failed rung with the reason.
 
 ## watch: video
 
-A video is read as frames and as speech. The frames go to a Lab-arena instance as pictures; the speech goes to
-n2's CPU and comes back as a transcript; the answer is written from both.
+A video is read as frames and as speech. The frames go to a local engine node as pictures; the speech goes to
+the speech node's CPU and comes back as a transcript; the answer is written from both.
 
 **What it takes**
 
@@ -112,7 +111,7 @@ reports the rate that was used. A frame is a JPEG at its own size, at most 1280 
 to encode, so a minute of video is answered from a dozen frames, not sixty: the default `maxFrames` is 12.
 `frames.count`, `frames.fps` and `frames.tokensPerFrame` say what was actually sent.
 
-**Speech.** The audio track is extracted and read on n2's CPU by faster-whisper `large-v3` int8, in the
+**Speech.** The audio track is extracted and read on the speech node's CPU by faster-whisper `large-v3` int8, in the
 video's language, with timestamps; `speech.text` is the transcript and `speech.model` names the model. A
 video with no audio, or with `speech: false`, answers `speech` null. The transcript goes into the prompt the
 frames are asked with, so the answer rests on what was said as well as on what was shown.
@@ -121,10 +120,9 @@ frames are asked with, so the answer rests on what was said as well as on what w
 
 | Order | Backend | Answers |
 |---|---|---|
-| 1 | `lab-arena` on n3 | the answer, from the frames and the transcript |
-| 2 | `lab-arena` on n4, then n5, then n6 | the same |
-| 3 | `gemini` | the video natively, where a key is configured and the source is a link or an upload |
-| 4 | `caller` | hands the source over, for a video a caller's own model takes |
+| 1 | `local`, each node the settings name in order | the answer, from the frames and the transcript |
+| 2 | `gemini` | the video natively, where a key is configured and the source is a link or an upload |
+| 3 | `caller` | hands the source over, for a video a caller's own model takes |
 
 - **The `gemini` rung is skipped with no key,** and skipped for a path on the service's own machine, which a
   hosted API cannot reach.
@@ -134,7 +132,7 @@ frames are asked with, so the answer rests on what was said as well as on what w
 ## What a picture costs the text path
 
 A picture is read on the node's CPU, before the engine prefills, and takes nothing from the card. Measured
-on n3 on 2026-10-27, a text-only request answered four times on an idle node and four times while a `read`
+on the general pack's node, a text-only request answered four times on an idle node and four times while a `read`
 look of four pages was being answered by the same node:
 
 | The node | Wall | Generated |

@@ -1,5 +1,6 @@
-//! The service's settings: where it listens, where its store stands, the Lab-arena nodes it asks, the hosted
-//! backends' keys and the road to n2 (`docs/engines.md`, 「Where the vision unit stands」).
+//! The service's settings: where it listens, where its store stands, the local engine nodes it asks, the
+//! hosted backends' keys and the road to the speech node (`docs/engines.md`, 「Where the vision unit
+//! stands」).
 
 use std::path::{Path, PathBuf};
 
@@ -15,7 +16,7 @@ pub struct Settings {
   #[serde(default = "default_token_file")]
   pub token_file: String,
   #[serde(default)]
-  pub lab-arena: Lab-arena,
+  pub local: Local,
   #[serde(default)]
   pub hosted: Hosted,
   #[serde(default)]
@@ -36,44 +37,21 @@ fn default_token_file() -> String {
   "~/.local/share/bmo/data/eye/token".into()
 }
 
-#[derive(Debug, Clone, Deserialize)]
-pub struct Lab-arena {
-  #[serde(default = "default_nodes")]
+/// The local OpenAI-compatible engine nodes a look asks first, in order. None is named by default: with the
+/// list empty the chain starts at the hosted backends.
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct Local {
+  #[serde(default)]
   pub nodes: Vec<Node>,
 }
 
-impl Default for Lab-arena {
-  fn default() -> Self {
-    Lab-arena {
-      nodes: default_nodes(),
-    }
-  }
-}
-
-/// One Lab-arena instance: where it answers, the key it takes, and the model name it carries.
+/// One local engine node: its name, where it answers, the key it takes, and the model name it carries.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Node {
   pub name: String,
   pub address: String,
   pub model: String,
   pub key_file: String,
-}
-
-fn default_nodes() -> Vec<Node> {
-  [
-    ("n3", "127.0.0.1:18101", "qwen3.8-flash-next-iq3_s", "n3"),
-    ("n4", "127.0.0.1:18102", "qwen3.8-flash-next-coder-iq1_m", "n4"),
-    ("n5", "127.0.0.1:18103", "qwen3.8-flash-next-coder-iq1_m", "n5"),
-    ("n6", "127.0.0.1:18104", "qwen3.8-flash-next-coder-iq1_m", "n6"),
-  ]
-  .into_iter()
-  .map(|(name, address, model, key)| Node {
-    name: name.into(),
-    address: address.into(),
-    model: model.into(),
-    key_file: format!("~/.local/share/bmo/data/eye/keys/{key}.key"),
-  })
-  .collect()
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -148,12 +126,14 @@ impl Default for Gemini {
   }
 }
 
-/// n2's CPU speech model, reached through the jake hub (`docs/engines.md`, 「The workbench on n2」).
+/// The speech node's CPU speech model, reached through the jake hub (`docs/engines.md`, 「The speech
+/// workbench」). No node is named by default: speech stands only once `agent` names the hub agent of the
+/// prepared node.
 #[derive(Debug, Clone, Deserialize)]
 pub struct Speech {
   #[serde(default = "yes")]
   pub enabled: bool,
-  #[serde(default = "default_agent")]
+  #[serde(default)]
   pub agent: String,
   #[serde(default = "default_hub")]
   pub hub: String,
@@ -180,10 +160,6 @@ fn default_bun() -> String {
   "~/.bun/bin/bun".into()
 }
 
-fn default_agent() -> String {
-  "n2".into()
-}
-
 fn default_hub() -> String {
   "http://127.0.0.1:8791".into()
 }
@@ -208,7 +184,7 @@ impl Default for Speech {
   fn default() -> Self {
     Speech {
       enabled: true,
-      agent: default_agent(),
+      agent: String::new(),
       hub: default_hub(),
       hub_env: default_hub_env(),
       python: default_speech_python(),
@@ -258,7 +234,7 @@ impl Default for Settings {
       listen: default_listen(),
       root: default_root(),
       token_file: default_token_file(),
-      lab-arena: Lab-arena::default(),
+      local: Local::default(),
       hosted: Hosted::default(),
       speech: Speech::default(),
       media: Media::default(),

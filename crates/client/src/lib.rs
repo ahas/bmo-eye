@@ -70,7 +70,7 @@ impl State {
 #[serde(tag = "kind", rename_all = "lowercase", rename_all_fields = "camelCase")]
 pub enum SourceRef {
   Upload {
-    /// Also read as `upload_id`, the name bmo-paint sends.
+    /// Also read as `upload_id`, the name some callers send.
     #[serde(alias = "upload_id")]
     upload_id: i64,
   },
@@ -599,7 +599,7 @@ mod tests {
   }
 
   #[test]
-  fn an_upload_source_reads_the_name_bmo_paint_sends() {
+  fn an_upload_source_reads_upload_id_as_its_id() {
     assert_eq!(upload_id_of(&upload_look("upload_id")), 7);
   }
 

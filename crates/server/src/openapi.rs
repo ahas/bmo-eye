@@ -27,7 +27,7 @@ fn generator(definitions_path: &'static str) -> SchemaGenerator {
 
 const DESCRIPTION: &str = "The vision unit's server: one request and one answer shape over three modes (see, watch, \
   read), each with its own chain of backends. A look is a question put to a set of sources; the server holds no \
-  model and no card, asks its chain over the Lab-arena engines and the hosted backends, and records in the look what \
+  model and no card, asks its chain over the local engine nodes and the hosted backends, and records in the look what \
   every rung of that chain did. Bodies are JSON with camelCase keys; instants are integers of epoch milliseconds \
   ending in `At` and spans are milliseconds ending in `Ms`. A list is a page of `items` with a `more` flag, the \
   next page asked with the last item's `id` as `after`. Every failure is a non-2xx status in the common error \

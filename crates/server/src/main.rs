@@ -15,7 +15,7 @@ use eye_server::tool::{answer_text, default_question, refusal, source_ref};
 #[command(
   name = "bmo-eye",
   version,
-  about = "The vision unit: see, read and watch, through the Lab-arena engines"
+  about = "The vision unit: see, read and watch, through local engine nodes and hosted backends"
 )]
 struct Cli {
   #[command(subcommand)]

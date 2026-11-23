@@ -36,7 +36,7 @@
         "additionalProperties": false,
         "required": ["backend", "state", "ms"],
         "properties": {
-          "backend": { "type": "string", "enum": ["lab-arena", "openrouter", "gemini", "caller"] },
+          "backend": { "type": "string", "enum": ["local", "openrouter", "gemini", "caller"] },
           "node": { "type": ["string", "null"] },
           "model": { "type": ["string", "null"] },
           "state": { "type": "string", "enum": ["answered", "failed", "skipped", "handed-off"] },
@@ -52,7 +52,7 @@
       "additionalProperties": false,
       "required": ["name"],
       "properties": {
-        "name": { "type": "string", "enum": ["lab-arena", "openrouter", "gemini", "caller"] },
+        "name": { "type": "string", "enum": ["local", "openrouter", "gemini", "caller"] },
         "node": { "type": ["string", "null"] },
         "model": { "type": ["string", "null"] }
       }

@@ -7,8 +7,8 @@ https address of a video file or of a page that holds one, YouTube, Instagram re
 bmo use eye/watch --arg path=https://www.youtube.com/watch?v=… --arg question="무엇을 보도하는가?"
 ```
 
-- **Frames and speech are read apart.** A dozen frames go to a Lab-arena node as pictures; the audio is read
-  by faster-whisper on n2's CPU and put into the prompt with the frames.
+- **Frames and speech are read apart.** A dozen frames go to a local engine node as pictures; the audio is
+  read by faster-whisper on the speech node's CPU and put into the prompt with the frames.
 - **The frame budget is the node's reader:** a picture is about 300 tokens and seconds of CPU, so
   `maxFrames` (12 by default) decides what a minute of video is answered from. `fps` is the ceiling, not a
   promise: frames are taken evenly across the span when the count would take more.

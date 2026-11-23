@@ -1,6 +1,6 @@
 [package]
 name = "eye-server"
-description = "The vision unit: its routes, its chain over the Lab-arena engines, and the bmo-eye command."
+description = "The vision unit: its routes, its chain over the local engine nodes and the hosted backends, and the bmo-eye command."
 version.workspace = true
 edition.workspace = true
 license.workspace = true

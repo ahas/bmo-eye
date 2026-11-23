@@ -13,12 +13,12 @@ Archive documents and reports for the owner are written in Korean; the documents
 - `docs/openapi.json` is generated from the types the routes take and answer, and the suite holds the kept
   document to them: a change to a route or a body writes it again with
   `cargo run -p eye-server --example openapi > docs/openapi.json`.
-- The server is written in Rust and holds no model, no weight and no card. Pictures are read by the Lab-arena
-  engines on n3 to n6 (`docs/engines.md`); nothing of this unit is installed as a model on a node.
-- The Lab-arena nodes are reached at `127.0.0.1:18101`–`18104` from main-host, each with the key file the settings
-  name for it. Their API is OpenAI's chat completions; a picture is an `image_url`
+- The server is written in Rust and holds no model, no weight and no card. Pictures are read by the local
+  engine nodes the settings name (`docs/engines.md`); nothing of this unit is installed as a model on a node.
+- The local engine nodes are reached at the addresses the settings' `[local]` section lists, none by default,
+  each with the key file the settings name for it. Their API is OpenAI's chat completions; a picture is an `image_url`
   part and thinking is always off.
-- n2 is reached through the jake hub's control API (`POST http://127.0.0.1:8791/exec?agent=n2`, bearer token
+- The speech node is reached through the jake hub's control API (`POST <hub>/exec?agent=<speech.agent>`, bearer token
   in `~/.local/share/jake/hub.env`, SSE output) for a video's speech; there is no direct ssh. The speech paths
   are the node account's own, under its home.
 - The vision unit takes no card from bmo-arbiter and no other service is stopped by hand.

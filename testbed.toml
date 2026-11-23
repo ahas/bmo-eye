@@ -5,7 +5,7 @@ name = "bmo-eye"
 
 [test]
 # The workspace's crates and the repository's own tests under tests/, which walk the routes against a
-# stand-in Lab-arena node.
+# stand-in local engine node.
 languages = ["cargo"]
 
 [check]

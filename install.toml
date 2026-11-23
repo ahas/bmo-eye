@@ -34,8 +34,8 @@ file = "env/openrouter.key"
 secret = true
 
 # The settings, eye/settings.toml, linked into the release. The service mints its own token beside its store. No
-# local Lab-arena node is named, so a look goes to the hosted fallback until the operator lists the nodes under
-# [lab-arena]. A video's speech is read on a jake hub node prepared with the whisper environment of scripts/whisper.py;
+# local engine node is named, so a look goes to the hosted fallback until the operator lists the nodes under
+# [local]. A video's speech is read on a jake hub node prepared with the whisper environment of scripts/whisper.py;
 # none is prepared by the install, so speech stays off until the operator names that node's agent and turns it on.
 [[settings]]
 file = "eye/settings.toml"
@@ -44,7 +44,7 @@ listen = "127.0.0.1:{{port.eye.server}}"
 root = "{{data_root}}/eye"
 token-file = "{{data_root}}/eye/token"
 
-[lab-arena]
+[local]
 nodes = []
 
 [hosted.openrouter]
