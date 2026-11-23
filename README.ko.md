@@ -23,6 +23,18 @@ Qwen3.8-Flash-Next 세트를 통해 봅니다.
 파이프라인 설계를 다룹니다. 아카이브 문서와 소유자에게 올리는 보고는 한국어로 쓰고, `docs/`는 영어로
 유지합니다.
 
+## 모델
+
+저장소에는 가중치가 없습니다. OpenAI 호환 채팅 API를 내는 엔진을 통해 봅니다.
+
+| 무엇 | 받는 곳 | 쓰는 곳 |
+|---|---|---|
+| 시각·언어 모델과 그 프로젝터 | Qwen3.8-Flash-Next 계열의 GGUF와 `mmproj` 파일을 GPU 노드의 llama.cpp 호환 엔진으로 서빙(이 배포가 쓰는 파일과 노드는 `docs/engines.md`) | see, read, 그리고 watch의 장면 |
+| 호스팅 대체 경로 | OpenAI 호환 제공자. 이 배포는 OpenRouter의 `qwen/qwen3.7-flash`를 쓰고, 키는 저장된 비밀값에 둡니다 | 로컬 엔진이 답하지 않을 때 모든 모드 |
+| Whisper | `faster-whisper` `large-v3`(CTranslate2 int8). 노드의 Hugging Face 캐시에 받습니다 | 영상의 음성 |
+
+각 모델은 저마다의 라이선스를 따르고, 이 저장소의 코드는 MIT입니다.
+
 ## 구성
 
 | Folder | Holds |

@@ -19,6 +19,18 @@
 权威说明位于 `docs/`：API、各模式及其链、它所借助的引擎、计划，以及绘图请求的参考图流水线设计。归档文档和
 呈给所有者的报告用韩语撰写；`docs/` 保持英文。
 
+## 模型
+
+仓库中不包含权重，它通过提供 OpenAI 兼容聊天 API 的引擎来"看"。
+
+| 内容 | 来源 | 用途 |
+|---|---|---|
+| 视觉语言模型及其投影器 | Qwen3.8-Flash-Next 系列的 GGUF 与 `mmproj` 文件，由 GPU 节点上兼容 llama.cpp 的引擎提供（本部署使用的文件与节点见 `docs/engines.md`） | see、read 以及 watch 的画面 |
+| 托管备用通道 | 任意 OpenAI 兼容服务商；本部署使用 OpenRouter 的 `qwen/qwen3.7-flash`，密钥放在已保存的密钥中 | 本地引擎无响应时的所有模式 |
+| Whisper | `faster-whisper` `large-v3`（CTranslate2 int8），下载到节点的 Hugging Face 缓存 | 视频中的语音 |
+
+各模型遵循各自的许可证，本仓库代码采用 MIT 许可。
+
 ## 结构
 
 | Folder | Holds |

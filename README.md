@@ -23,6 +23,18 @@ Every agent on the platform looks at an image or a video through bmo-eye first u
 the plan, and the design for a drawing request's reference pipeline. Archive documents and reports for the
 owner are written in Korean; `docs/` stays in English.
 
+## Models
+
+The repository holds no weights; it looks through engines that serve an OpenAI-compatible chat API.
+
+| What | Where it comes from | Used for |
+|---|---|---|
+| A vision-language model with its projector | a GGUF build of the Qwen3.8-Flash-Next family and its `mmproj` file, served by a llama.cpp-compatible engine on a GPU node (`docs/engines.md` names the files and nodes this deployment runs) | see, read and watch's frames |
+| A hosted fallback | any OpenAI-compatible provider; this deployment names OpenRouter's `qwen/qwen3.7-flash`, with its key in a saved secret | every mode, when no local engine answers |
+| Whisper | `faster-whisper` `large-v3` (CTranslate2 int8), fetched into the node's Hugging Face cache | a video's speech |
+
+Each model keeps its own licence; the code here is MIT.
+
 ## Layout
 
 | Folder | Holds |
