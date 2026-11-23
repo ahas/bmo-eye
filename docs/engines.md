@@ -95,7 +95,7 @@ node's and its driver's own, read on `node2.labuser.local` on 2026-10-28 at driv
 
 | Unit | What it serves | On disk | On the card now | Peak while serving |
 |---|---|---|---|---|
-| `hy-mt2-engine` | a translation engine: `llama.cpp` over `HY-MT2-7B-Q8_0`, a 32,768 token context, four slots, an 8-bit cache, every layer offloaded | 7.5 GiB, the model file 7.4 of it; the `llama.cpp` build it runs is counted under `~/kakia-llm` below | 10,140 MiB | 10,140 MiB, flat: the context is taken at start and a line does not move it |
+| `hy-mt2-engine` | a translation engine: `llama.cpp` over `HY-MT2-7B-Q8_0`, a 32,768 token context, four slots, an 8-bit cache, every layer offloaded | 7.5 GiB, the model file 7.4 of it; the `llama.cpp` build it runs is counted under `~/kiki-llm` below | 10,140 MiB | 10,140 MiB, flat: the context is taken at start and a line does not move it |
 | `bmo-voice` | a voice server over `VoxCPM2` with one LoRA checkpoint at a time, `bmo-005-e-1000` now | 6.8 GiB, its environment 6.3 and the checkpoints with their references 0.45 | 218 MiB, its process's context | 7.1 GB, the voice server's own record of a line spoken on an RTX 4070, and 6,908 MiB on an RTX 3060 Ti; not measurable here, see below |
 
 The voice server keeps the model in page-locked host memory, 5.39 GiB of the node's RAM, and moves it onto
@@ -124,7 +124,7 @@ record and not a figure taken on this node.
 |---|---|---|
 | `~/eye` | stage 1 of this unit, kept: 64 GiB of model files no unit on the node loads, an OCR environment, the whisper environment and its samples | 71 GiB |
 | `~/yue2` | song generation: its models, the LoRAs trained on them, the songs it rendered and four environments | 72 GiB |
-| `~/kakia-llm` | three quantisations of one `RVN` model, a remote cache and the `llama.cpp` build the translation engine runs | 47 GiB |
+| `~/kiki-llm` | three quantisations of one `RVN` model, a remote cache and the `llama.cpp` build the translation engine runs | 47 GiB |
 | `~/workspace` | training projects of the node account, a crack detector among them kept twice, one trainer archived beside itself, and a plate reader | 54 GiB |
 | `~/research` | one training run's outputs | 50 GiB |
 | `~/.cache/huggingface` | the shared model cache: `large-v3` for this unit's speech, 2.9 GiB, and `large-v3-turbo` for the ear service, 1.6 GiB | 7.1 GiB |
@@ -184,11 +184,8 @@ waited on, and then the repository's tool placed with the tool host
 **The vision unit is not a card occupant.** It takes no turn, loads no weights and holds nothing on any
 card.
 
-What was done on 2026-10-27: the stage 1 placement was removed through the card master's own verb
-(`POST /placements` with `kind: remove`), and the node's occupants went from `trainer ear eye gguf-llm
-laya-train song voice` to `trainer ear gguf-llm laya-train song voice`. The repository's declaration file,
-`eye.card.toml`, is gone, and the card rules never named `eye` — stage 1's proposal to add it at tier 1 is
-withdrawn with this document.
+The card master holds no placement for it, and the node's occupants are `trainer ear gguf-llm laya-train song
+voice`. The repository has no declaration file, and the card rules do not name `eye`.
 
 What is left for the operator: the `…/bmo/services/eye` entry this repository once added to the master's
 `CARD_DECLARATIONS` can be dropped at its next restart. With no declaration file in the repository it
