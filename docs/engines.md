@@ -18,8 +18,8 @@ and each instance's `/health` answers `images: true` while a reader is configure
 | n6 | `192.0.2.21:8080` | `qwen3.8-flash-next-coder-iq1_m` | the same, with `data/packs` 25 GB | Coder pack |
 
 The projector stands beside the weights on every node,
-`/home/labuser/ahalab-arena/model/mmproj-Qwen3.8-Flash-Next-BF16.gguf`, 907 MB (866 MiB). The reader is
-`/home/labuser/bmo-lab-arena/bin/lab-arena-vision`, the engine runs with `--vision`, and the config's `vision`
+`~/ahalab-arena/model/mmproj-Qwen3.8-Flash-Next-BF16.gguf`, 907 MB (866 MiB). The reader is
+`~/bmo-lab-arena/bin/lab-arena-vision`, the engine runs with `--vision`, and the config's `vision`
 section names the reader, the projector, the model's first shard and the reader's limits: `gpu` false,
 300 tokens per picture, eight threads.
 
@@ -88,7 +88,7 @@ turn, and reads the transcript back.
 ## What n2 runs
 
 n2 is the workbench and a card machine of its own, an RTX 4070 of 12,282 MiB. The figures below are the
-node's and its driver's own, read on `node2.labuser.local` on 2026-10-28 at driver 595.58.03, the card at
+node's and its driver's own, read on the node on 2026-10-28 at driver 595.58.03, the card at
 10,791 MiB in use and 1,491 MiB free while they were read. A size is what `du` on the node reports.
 
 ### The services that take the card

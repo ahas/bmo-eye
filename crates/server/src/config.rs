@@ -193,11 +193,11 @@ fn default_hub_env() -> String {
 }
 
 fn default_speech_python() -> String {
-  "/home/labuser/eye/venv-whisper/bin/python".into()
+  "~/eye/venv-whisper/bin/python".into()
 }
 
 fn default_speech_script() -> String {
-  "/home/labuser/eye/whisper.py".into()
+  "~/eye/whisper.py".into()
 }
 
 fn default_speech_model() -> String {

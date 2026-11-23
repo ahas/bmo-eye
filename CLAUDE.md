@@ -19,7 +19,7 @@ Archive documents and reports for the owner are written in Korean; the documents
   `~/.local/share/bmo-lab-arena/keys/`. Their API is OpenAI's chat completions; a picture is an `image_url`
   part and thinking is always off.
 - n2 is reached through the jake hub's control API (`POST http://127.0.0.1:8791/exec?agent=n2`, bearer token
-  in `~/.local/share/jake/hub.env`, SSE output) for a video's speech; there is no direct ssh. The node
-  account is `labuser`.
+  in `~/.local/share/jake/hub.env`, SSE output) for a video's speech; there is no direct ssh. The speech paths
+  are the node account's own, under its home.
 - The vision unit takes no card from bmo-arbiter and no other service is stopped by hand.
 - Every measurement carries the node, the engine version, the model file and the commit it was taken at.
