@@ -1,7 +1,7 @@
 # The `eye/see` entry
 
 Look at one picture and answer a question about it. The picture is read by the Qwen3.8-Flash-Next set that
-bmo-lab-arena runs on n3 to n6 (`docs/modes.md`), so nothing of the vision unit itself runs a model.
+the Lab-arena deployment runs on n3 to n6 (`docs/modes.md`), so nothing of the vision unit itself runs a model.
 
 Call it with a path on this machine — the path a room's message note names — and the question you want
 answered. The answer comes back in the language the question was asked in, with the backend and the node

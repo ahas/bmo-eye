@@ -1,7 +1,7 @@
 # The engines the vision unit looks through
 
-bmo-eye holds no model of its own. It looks through the Qwen3.8-Flash-Next set that bmo-lab-arena already
-runs on n3, n4, n5 and n6, and it reads a video's speech on n2's CPU. This document states that set, how a
+bmo-eye holds no model of its own. It looks through the Qwen3.8-Flash-Next set that the Lab-arena deployment
+already runs on n3, n4, n5 and n6, and it reads a video's speech on n2's CPU. This document states that set, how a
 picture reaches it, what a picture costs, and where the vision unit itself stands.
 
 ## The set
@@ -19,7 +19,7 @@ and each instance's `/health` answers `images: true` while a reader is configure
 
 The projector stands beside the weights on every node,
 `~/ahalab-arena/model/mmproj-Qwen3.8-Flash-Next-BF16.gguf`, 907 MB (866 MiB). The reader is
-`~/bmo-lab-arena/bin/lab-arena-vision`, the engine runs with `--vision`, and the config's `vision`
+`bin/lab-arena-vision` in the Lab-arena deployment's folder, the engine runs with `--vision`, and the config's `vision`
 section names the reader, the projector, the model's first shard and the reader's limits: `gpu` false,
 300 tokens per picture, eight threads.
 
@@ -160,7 +160,7 @@ postgresql 14, rabbitmq, docker and containerd, the two `dl-` viewers, `matterpo
 | the settings | `~/.local/share/bmo/data/eye/settings.toml`, linked into the release |
 | its store | `~/.local/share/bmo/data/eye/`, SQLite and the uploads' bytes |
 | the Lab-arena nodes | `127.0.0.1:18101`–`18104`, the loopback tunnels the Lab-arena deployment keeps |
-| the nodes' keys | `~/.local/share/bmo-lab-arena/keys/n3.key` … `n6.key` |
+| the nodes' keys | each node's `key_file` in the settings, `~/.local/share/bmo/data/eye/keys/<node>.key` where none is named |
 | n2's CPU | through the jake hub's control API at `127.0.0.1:8791` |
 | OpenRouter | `https://openrouter.ai/api/v1`, the settings' `hosted.openrouter.address`; the key in `~/.local/share/bmo/data/env/openrouter.key` |
 | Gemini | configured by no key on this machine |

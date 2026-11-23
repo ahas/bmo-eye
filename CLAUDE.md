@@ -15,8 +15,8 @@ Archive documents and reports for the owner are written in Korean; the documents
   `cargo run -p eye-server --example openapi > docs/openapi.json`.
 - The server is written in Rust and holds no model, no weight and no card. Pictures are read by the Lab-arena
   engines on n3 to n6 (`docs/engines.md`); nothing of this unit is installed as a model on a node.
-- The Lab-arena nodes are reached at `127.0.0.1:18101`–`18104` from main-host, with their keys under
-  `~/.local/share/bmo-lab-arena/keys/`. Their API is OpenAI's chat completions; a picture is an `image_url`
+- The Lab-arena nodes are reached at `127.0.0.1:18101`–`18104` from main-host, each with the key file the settings
+  name for it. Their API is OpenAI's chat completions; a picture is an `image_url`
   part and thinking is always off.
 - n2 is reached through the jake hub's control API (`POST http://127.0.0.1:8791/exec?agent=n2`, bearer token
   in `~/.local/share/jake/hub.env`, SSE output) for a video's speech; there is no direct ssh. The speech paths

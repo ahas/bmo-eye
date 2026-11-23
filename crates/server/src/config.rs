@@ -71,7 +71,7 @@ fn default_nodes() -> Vec<Node> {
     name: name.into(),
     address: address.into(),
     model: model.into(),
-    key_file: format!("~/.local/share/bmo-lab-arena/keys/{key}.key"),
+    key_file: format!("~/.local/share/bmo/data/eye/keys/{key}.key"),
   })
   .collect()
 }
@@ -173,11 +173,11 @@ pub struct Speech {
 }
 
 fn default_console() -> String {
-  "/home/ahas/repos/ahas/jake/src/console/main.ts".into()
+  "~/jake/src/console/main.ts".into()
 }
 
 fn default_bun() -> String {
-  "/home/ahas/.bun/bin/bun".into()
+  "~/.bun/bin/bun".into()
 }
 
 fn default_agent() -> String {

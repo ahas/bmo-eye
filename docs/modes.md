@@ -11,7 +11,7 @@ and each mode has its own chain of backends. The request and answer shape is the
 | `watch` | `bmo watch` | video: a file, a video or video-page URL, YouTube included; scenes, on-screen text, speech | a Lab-arena instance for the frames, n2's CPU for the speech |
 
 The engines are `docs/engines.md`. No mode has a model of its own: every mode reaches the Qwen3.8-Flash-Next
-set that bmo-lab-arena already runs, and the vision unit itself holds no weights and no card.
+set that the Lab-arena deployment already runs, and the vision unit itself holds no weights and no card.
 
 ## The rule every mode follows
 
