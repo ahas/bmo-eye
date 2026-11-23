@@ -53,7 +53,7 @@ key_file = "{{data_root}}/env/openrouter.key"
 [speech]
 enabled = false
 hub = "http://127.0.0.1:{{port.jake.control}}"
-hub_env = "{{home}}/.local/share/jake/hub.env"
+hub_env = "{{prefix}}/jake/hub.env"
 console = "{{checkout.jake}}/src/console/main.ts"
 bun = "{{home}}/.bun/bin/bun"
 
