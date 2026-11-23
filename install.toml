@@ -1,0 +1,74 @@
+# What installing the vision unit on a fresh machine needs, read by the testbed's install verb (bmo-testbed's
+# docs/install.md, 「The install declaration」). The settings are the service's own (docs/engines.md, 「Where the vision
+# unit stands」); every key the settings leave out takes the binary's default.
+
+install = 1
+
+restart = "systemctl --user restart bmo-eye.service"
+
+[[needs]]
+program = "cargo"
+what = "Builds the service; the Rust toolchain from https://rustup.rs."
+
+[[needs]]
+program = "ffmpeg"
+what = "Cuts a video into its frames and its audio track; the ffmpeg package."
+
+[[needs]]
+check = "python3 -m venv --help >/dev/null"
+what = "Makes the environment yt-dlp, which fetches a video page's file, is installed in; the python3-venv package."
+
+[[needs]]
+program = "bun"
+what = "Runs the jake hub's console, which carries a video's audio to the node that reads its speech; the Bun runtime from https://bun.sh."
+
+[[port]]
+name = "eye.server"
+number = 7435
+
+# The hosted fallback every mode answers from where no local engine node is named.
+[[input]]
+name = "eye.openrouter-key"
+what = "An OpenRouter API key, made at https://openrouter.ai/settings/keys on an account with credit, which every look is answered with where no local vision engine is set up."
+file = "env/openrouter.key"
+secret = true
+
+# The settings, eye/settings.toml, linked into the release. The service mints its own token beside its store. No
+# local Lab-arena node is named, so a look goes to the hosted fallback until the operator lists the nodes under
+# [lab-arena]. A video's speech is read on a jake hub node prepared with the whisper environment of scripts/whisper.py;
+# none is prepared by the install, so speech stays off until the operator names that node's agent and turns it on.
+[[settings]]
+file = "eye/settings.toml"
+text = """
+listen = "127.0.0.1:{{port.eye.server}}"
+root = "{{data_root}}/eye"
+token-file = "{{data_root}}/eye/token"
+
+[lab-arena]
+nodes = []
+
+[hosted.openrouter]
+key_file = "{{data_root}}/env/openrouter.key"
+
+[speech]
+enabled = false
+hub = "http://127.0.0.1:{{port.jake.control}}"
+hub_env = "{{home}}/.local/share/jake/hub.env"
+console = "{{checkout.jake}}/src/console/main.ts"
+bun = "{{home}}/.bun/bin/bun"
+
+[media]
+ffmpeg = "ffmpeg"
+ytdlp = "{{data_root}}/eye/venv/bin/yt-dlp"
+work_dir = "{{data_root}}/eye/work"
+"""
+
+# yt-dlp in its own environment under the store, where the settings name it.
+[[after]]
+id = "yt-dlp"
+run = '''
+set -eu
+python3 -m venv "$BMO_DATA_DIR/eye/venv"
+"$BMO_DATA_DIR/eye/venv/bin/pip" install --quiet --upgrade yt-dlp
+'''
+done = 'test -x "$BMO_DATA_DIR/eye/venv/bin/yt-dlp"'

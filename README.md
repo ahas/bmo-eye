@@ -47,4 +47,4 @@ Each model keeps its own licence; the code here is MIT.
 | `deploy/` | The user unit the deployment restarts and watches |
 
 At the root stand the Cargo workspace, the tool host's manifest `tool.toml` with the schemas its entries name
-(beside it, as the host requires), the testbed's `testbed.toml` and `CLAUDE.md`.
+(beside it, as the host requires), the testbed's `testbed.toml`, `install.toml` (what installing the unit on a fresh machine needs) and `CLAUDE.md`.

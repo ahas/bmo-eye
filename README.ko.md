@@ -47,4 +47,4 @@ Qwen3.8-Flash-Next 세트를 통해 봅니다.
 | `deploy/` | 배포가 재시작하고 감시하는 사용자 유닛 |
 
 루트에는 Cargo 워크스페이스, 도구 호스트의 매니페스트 `tool.toml`과 그 엔트리가 가리키는 스키마(호스트의 요구대로
-그 옆에 둡니다), 테스트베드의 `testbed.toml`, 그리고 `CLAUDE.md`가 있습니다.
+그 옆에 둡니다), 테스트베드의 `testbed.toml`, `install.toml`(새 머신에 유닛을 설치하는 데 필요한 것), 그리고 `CLAUDE.md`가 있습니다.

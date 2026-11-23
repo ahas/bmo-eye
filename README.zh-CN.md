@@ -43,4 +43,4 @@
 | `deploy/` | 部署时重启并监视的用户单元 |
 
 根目录下有 Cargo 工作区、工具宿主的清单 `tool.toml` 及其条目引用的 schema（按宿主要求放在其旁边）、testbed 的
-`testbed.toml`，以及 `CLAUDE.md`。
+`testbed.toml`、`install.toml`（在新机器上安装本单元所需的内容），以及 `CLAUDE.md`。
