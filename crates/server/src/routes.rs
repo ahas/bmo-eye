@@ -171,7 +171,7 @@ async fn health(State(app): State<Arc<App>>) -> Response {
   Json(Health {
     ready: stands.ready(),
     reason: stands.reason(),
-    version: env!("CARGO_PKG_VERSION").into(),
+    version: crate::VERSION.into(),
   })
   .into_response()
 }

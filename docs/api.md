@@ -6,9 +6,9 @@ from the types the routes take and answer, and a test holds the copy kept beside
 the code writes; a change to a route or a body writes it again with
 `cargo run -p eye-server --example openapi > docs/openapi.json`.
 
-The version is the repository's one, `0.1.0-rev.1`, kept in the Cargo manifests, in the health answer and
-in the OpenAPI document; it moves only at a release the owner declares, as bmo-chat's
-`docs/conventions.md` 「Versions」 states. The server is built and deployed: it answers these routes on
+The version is the set's, read off the git tag when a build is made and handed to the build as
+`BMO_VERSION`; the health answer and `--version` name it, as bmo-chat's `docs/conventions.md` 「Versions」
+states. The Cargo manifests' version and the OpenAPI document's are a placeholder that never moves. The server is built and deployed: it answers these routes on
 the operations machine at `127.0.0.1:7435`, and what of the plan is still to build stands in `docs/plan.md`,
 「What is still to build」.
 

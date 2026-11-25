@@ -539,7 +539,7 @@ async fn the_health_answer_reports_the_service_that_stands() {
   let health = client.health().await.unwrap();
   assert!(health.ready, "a stand-in node that reads pictures leaves the service standing");
   assert!(health.reason.is_none(), "{health:?}");
-  assert_eq!(health.version, env!("CARGO_PKG_VERSION"), "{health:?}");
+  assert_eq!(health.version, eye_server::VERSION, "{health:?}");
   let _ = std::fs::remove_dir_all(dir);
 }
 

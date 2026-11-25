@@ -9,3 +9,11 @@ pub mod openapi;
 pub mod routes;
 pub mod store;
 pub mod tool;
+
+/// The version the service's health answers: the set's version the build was made at, which the testbed
+/// hands the build as `BMO_VERSION`, else the manifest's placeholder (bmo-chat's `docs/conventions.md`,
+/// 「Versions」).
+pub const VERSION: &str = match option_env!("BMO_VERSION") {
+  Some(version) => version,
+  None => env!("CARGO_PKG_VERSION"),
+};
