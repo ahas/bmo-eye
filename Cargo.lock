@@ -178,7 +178,7 @@ dependencies = [
 
 [[package]]
 name = "bmo-eye-client"
-version = "0.1.0-rev.1"
+version = "0.0.0"
 dependencies = [
  "reqwest",
  "schemars",
@@ -430,7 +430,7 @@ dependencies = [
 
 [[package]]
 name = "eye-checks"
-version = "0.1.0-rev.1"
+version = "0.0.0"
 dependencies = [
  "axum",
  "base64 0.22.1",
@@ -443,7 +443,7 @@ dependencies = [
 
 [[package]]
 name = "eye-server"
-version = "0.1.0-rev.1"
+version = "0.0.0"
 dependencies = [
  "axum",
  "base64 0.22.1",

@@ -795,7 +795,7 @@
   "info": {
     "description": "The vision unit's server: one request and one answer shape over three modes (see, watch, read), each with its own chain of backends. A look is a question put to a set of sources; the server holds no model and no card, asks its chain over the local engine nodes and the hosted backends, and records in the look what every rung of that chain did. Bodies are JSON with camelCase keys; instants are integers of epoch milliseconds ending in `At` and spans are milliseconds ending in `Ms`. A list is a page of `items` with a `more` flag, the next page asked with the last item's `id` as `after`. Every failure is a non-2xx status in the common error shape with a `code` and an `error` sentence; the codes a route can answer stand under `x-codes`. A look that could not be answered is not a failure of the route: it is a member whose `state` is `failed` and whose `error` says why. The events the service writes stand under `x-events`.",
     "title": "bmo-eye",
-    "version": "0.1.0-rev.1"
+    "version": "0.0.0"
   },
   "openapi": "3.1.0",
   "paths": {
