@@ -69,6 +69,22 @@ struct Service {
 }
 
 async fn service_with(nodes: Vec<(&str, Reply)>, openrouter: Option<Reply>) -> Service {
+  service_on(nodes, openrouter, None).await
+}
+
+/// A service whose one node is set up at an address nothing answers on.
+async fn service_with_node_nobody_answers() -> Service {
+  let unused = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+  let address = unused.local_addr().unwrap().to_string();
+  drop(unused);
+  service_on(Vec::new(), None, Some(address)).await
+}
+
+async fn service_on(
+  nodes: Vec<(&str, Reply)>,
+  openrouter: Option<Reply>,
+  silent_node: Option<String>,
+) -> Service {
   static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
   let n = NEXT.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
   let dir = std::env::temp_dir().join(format!("bmo-eye-test-{}-{n}", std::process::id()));
@@ -84,6 +100,14 @@ async fn service_with(nodes: Vec<(&str, Reply)>, openrouter: Option<Reply>) -> S
     let (address, _) = stand_in(reply).await;
     settings.local.nodes.push(eye_server::config::Node {
       name: name.into(),
+      address,
+      model: "qwen3.8-flash-next-iq3_s".into(),
+      key_file: "/dev/null".into(),
+    });
+  }
+  if let Some(address) = silent_node {
+    settings.local.nodes.push(eye_server::config::Node {
+      name: "silent".into(),
       address,
       model: "qwen3.8-flash-next-iq3_s".into(),
       key_file: "/dev/null".into(),
@@ -544,8 +568,17 @@ async fn the_health_answer_reports_the_service_that_stands() {
 }
 
 #[tokio::test]
-async fn a_service_whose_chains_hold_no_backend_answers_not_ready_and_still_takes_the_look() {
+async fn a_service_with_no_backend_set_up_stands_for_the_caller_s_own_vision() {
   let service = service_with(Vec::new(), None).await;
+  let client = EyeClient::new(&service.base).with_token(&service.token);
+  let health = client.health().await.unwrap();
+  assert!(health.ready, "{health:?}");
+  assert!(health.reason.is_none(), "{health:?}");
+}
+
+#[tokio::test]
+async fn a_service_whose_backends_cannot_be_reached_answers_not_ready_and_still_takes_the_look() {
+  let service = service_with_node_nobody_answers().await;
   let client = EyeClient::new(&service.base).with_token(&service.token);
   let health = client.health().await.unwrap();
   assert!(!health.ready, "{health:?}");

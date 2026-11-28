@@ -136,7 +136,9 @@ pub async fn readiness(app: &Arc<App>) -> Stands {
     .flat_map(|chain| chain.chain.iter())
     .filter(|rung| rung.name != "caller")
     .collect::<Vec<&ChainRung>>();
-  if !rungs.iter().any(|rung| rung.state == "ready" || rung.state == "busy") {
+  // A machine with no backend set up at all answers every look by the caller's own vision, so it stands.
+  let none_set_up = rungs.iter().all(|rung| rung.state == "unconfigured");
+  if !none_set_up && !rungs.iter().any(|rung| rung.state == "ready" || rung.state == "busy") {
     return Stands::Backends {
       why: no_backend_reached(&rungs),
     };

@@ -39,8 +39,9 @@ common wire format」 and 「API design」).
 `GET /health` answers 200 whatever it finds: its answer is a fresh check of what stands now, reading its
 store and asking the state of every mode's chain — the same check `GET /modes` spells out.
 
-- **`ready` is false, and `reason` names which,** while its store cannot be read and while no backend of any
-  mode's chain could be reached. A server that has not opened its store and bound its listener answers no
+- **`ready` is false, and `reason` names which,** while its store cannot be read and while backends are set
+  up but none of any mode's chain could be reached. A machine where no backend is set up at all, every rung
+  of every chain unconfigured, is ready: each look there is answered by the caller's own vision. A server that has not opened its store and bound its listener answers no
   route at all, which is what a caller waits on through the unit's own start.
 - **A caller that gets `ready: false` may still create a look** where no backend could be reached: the look
   is created and waits. Where its store cannot be read no look can be created, and `POST /looks` answers 503
