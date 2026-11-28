@@ -55,3 +55,7 @@ command = '''
 set -eu
 bmo pocket put . --service bmo-eye --allow room.tools
 '''
+
+# the release a person's machine runs, packed as an artifact (bmo-testbed's docs/artifacts.md)
+[artifact]
+keep = ["scripts", "look.json", "read.json", "see.json", "watch.json", "tool.toml"]

@@ -7,6 +7,7 @@ install = 1
 restart = "systemctl --user restart bmo-eye.service"
 
 [[needs]]
+build = true
 program = "cargo"
 what = "Builds the service; the Rust toolchain from https://rustup.rs."
 
@@ -19,6 +20,7 @@ check = "python3 -m venv --help >/dev/null"
 what = "Makes the environment yt-dlp, which fetches a video page's file, is installed in; the python3-venv package."
 
 [[needs]]
+build = true
 program = "bun"
 what = "Runs the jake hub's console, which carries a video's audio to the node that reads its speech; the Bun runtime from https://bun.sh."
 
