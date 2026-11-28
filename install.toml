@@ -34,6 +34,7 @@ name = "eye.openrouter-key"
 what = "An OpenRouter API key, made at https://openrouter.ai/settings/keys on an account with credit, which every look is answered with where no local vision engine is set up."
 file = "env/openrouter.key"
 secret = true
+optional = true
 
 # The settings, eye/settings.toml, linked into the release. The service mints its own token beside its store. No
 # local engine node is named, so a look goes to the hosted fallback until the operator lists the nodes under
@@ -54,9 +55,9 @@ key_file = "{{data_root}}/env/openrouter.key"
 
 [speech]
 enabled = false
-hub = "http://127.0.0.1:{{port.jake.control}}"
+hub = "http://127.0.0.1:{{port.jake.control?}}"
 hub_env = "{{prefix}}/jake/hub.env"
-console = "{{checkout.jake}}/src/console/main.ts"
+console = "{{checkout.jake?}}/src/console/main.ts"
 bun = "{{home}}/.bun/bin/bun"
 
 [media]
