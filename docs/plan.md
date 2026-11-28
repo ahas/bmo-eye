@@ -14,7 +14,7 @@ by hosted backends. This document states what stands now and what is still to bu
 | the client | `crates/client`, the types and the HTTP client the command and the tests use |
 | the command | `bmo see`, `bmo read`, `bmo watch`, and `bmo eye looks`, `bmo eye look`, `bmo eye modes` |
 | the unit | `bmo-eye.service` on the operations machine, enabled, its health `bmo-eye health` |
-| the tools | `eye/see`, `eye/read` and `eye/watch`, placed with the tool host by the deployment |
+| the tools | `eye/see`, `eye/read` and `eye/watch`, placed with the tool host by the deployment, and the one line `eye.when` in every agent's brain that says when to reach for them (`deploy/brain-holder.toml`) |
 | the chat line | the chat agent's image note reads the picture through `bmo see` (agency `prompts/agents/chat/manual.md`) |
 | the tests | `tests/api.rs`, a module of the one test target `tests/main.rs`: a stand-in local engine node and the routes walked against it |
 
@@ -48,9 +48,14 @@ and every `eye/watch` call, answers such a look as an error (`docs/api.md`, 「H
 caller」).
 
 The deployment places the binary, the manifest and the schemas with the tool host once the service answers
-(`bmo pocket put .tool --placed --service bmo-eye`), so the entries stand from the flip onward and an agent
-reaches them by name where its line shows them and with `bmo use eye/see` where it does not. Each entry is
-unbounded to the tool host: a call waits for its look to end, however long the node takes to answer.
+(`bmo pocket put . --service bmo-eye --allow room.tools`), so the entries stand from the flip onward and an
+agent reaches them by name where its line shows them and with `bmo use eye/see` where it does not. Each entry
+is unbounded to the tool host: a call waits for its look to end, however long the node takes to answer.
+
+Once the service answers, the deployment also declares this unit's holder `eye` with the brain:
+`deploy/brain-holder.toml` holds its one standing line, `eye.when`, which tells every agent when to reach for
+the three tools, while how each is called stays its manual's. Taking the repository off the machine withdraws
+the holder again, and a machine with no brain passes both steps.
 
 ## The chat line
 

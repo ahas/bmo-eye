@@ -56,6 +56,30 @@ set -eu
 bmo pocket put . --service bmo-eye --allow room.tools
 '''
 
+# This service's standing line in every agent's brain, declared once the service is up (the brain's
+# docs/boundary-api.md, 「Declarations and holders」); a machine with no brain passes.
+[[deploy.step]]
+id = "holder-declare"
+phase = "after-health"
+command = '''
+set -eu
+brain="$HOME/.local/share/bmo-brain/deploy/bin/bmo-brain"
+[ -x "$brain" ] || exit 0
+"$brain" holder declare deploy/brain-holder.toml
+'''
+
+# The same set withdrawn from every agent's brain when the service is taken off this machine (the testbed's
+# docs/deploy.md, 「Taking a repository off: `deploy remove`」); a machine with no brain passes.
+[[deploy.step]]
+id = "holder-withdraw"
+phase = "removal"
+command = '''
+set -eu
+brain="$HOME/.local/share/bmo-brain/deploy/bin/bmo-brain"
+[ -x "$brain" ] || exit 0
+"$brain" holder withdraw eye
+'''
+
 # the release a person's machine runs, packed as an artifact (bmo-testbed's docs/artifacts.md)
 [artifact]
 keep = ["scripts", "look.json", "read.json", "see.json", "watch.json", "tool.toml", "docs/tool-*.md"]

@@ -1,0 +1,9 @@
+# This service's standing line in every agent's brain: when to reach for it. How its tools are called is their
+# manual's, handed with a tool's first call in a session.
+held_by = "eye"
+
+[[memory]]
+key = "eye.when"
+type = "tip"
+recall_condition = "a picture, a scanned or PDF page, or a video to look at, read or answer a question about"
+text = "Look at a picture with eye/see, read a scan or PDF page with eye/read, and a video or YouTube link with eye/watch."
